@@ -1,0 +1,50 @@
+# Publish to PyPI using OIDC (trusted publishing). No stored secrets required.
+#
+# One-time setup on PyPI:
+#   1. Create the project on PyPI if it doesn't exist.
+#   2. Add a trusted publisher: Project Settings → Publishing → Add a new pending publisher
+#      - PyPI project name: zush
+#      - Owner: <your-github-org-or-username>
+#      - Repository name: zush (or this repo name)
+#      - Workflow name: publish.yml
+#      - Environment: (optional) e.g. pypi
+#   3. Run this workflow (on release or manually); the first run will "approve" the pending publisher.
+#
+# See: https://docs.pypi.org/trusted-publishers/
+#      https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-pypi
+
+name: Publish to PyPI (OIDC)
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Build package
+        run: uv build
+
+      - name: Publish to PyPI (OIDC)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # OIDC: do not set username/password. PyPI trusted publisher must be configured.
+          skip-existing: true
