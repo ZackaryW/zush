@@ -77,6 +77,18 @@ class ZushPlugin:
 ZushPlugin = ZushPlugin()  # export instance
 ```
 
+**Helper (optional):** Use `zush.plugin` for a chainable builder so you don’t manage dotted keys by hand:
+
+```python
+# my_env/zush_hello/__zush__.py
+import click
+from zush.plugin import Plugin
+
+p = Plugin()
+p.group("hello", help="Greetings").command("say", callback=lambda: click.echo("Hi"), help="Say hi")
+ZushPlugin = p
+```
+
 See `playground/zush_demo` and `playground/zush_hooks_demo` for examples.
 
 ## Reserved group: `self`
