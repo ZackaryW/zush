@@ -9,6 +9,7 @@ import pytest
 from zush.config import Config
 from zush.discovery import run_discovery
 from zush.cache import read_cache, read_sentry
+from zush.paths import DirectoryStorage
 
 
 def test_run_discovery_empty_envs_returns_empty_plugin_list(monkeypatch):
@@ -73,3 +74,23 @@ plugin = type("P", (), {"commands": {"hello": click.Command("hello", callback=la
         plugins, _ = run_discovery(cfg)
     assert len(plugins) == 1
     assert plugins[0][0] == pkg
+
+
+def test_run_discovery_uses_storage_when_provided(tmp_path):
+    """When storage is provided, cache and sentry are read/written via storage."""
+    env_root = tmp_path / "env"
+    env_root.mkdir()
+    pkg = env_root / "zush_foo"
+    pkg.mkdir()
+    (pkg / "__zush__.py").write_text("""
+import click
+plugin = type("P", (), {"commands": {"hi": click.Command("hi")}})()
+""")
+    storage = DirectoryStorage(tmp_path / "data")
+    cfg = Config(envs=[env_root], env_prefix=["zush_"])
+    plugins, tree = run_discovery(cfg, storage=storage)
+    assert len(plugins) == 1
+    assert (storage.cache_file()).exists()
+    assert (storage.sentry_file()).exists()
+    assert read_cache(storage=storage) != {}
+    assert len(read_sentry(storage=storage)) >= 1

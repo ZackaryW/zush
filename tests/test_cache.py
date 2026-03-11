@@ -14,6 +14,7 @@ from zush.cache import (
     write_sentry,
     is_env_stale,
 )
+from zush.paths import DirectoryStorage
 
 
 def test_read_cache_missing_returns_empty_dict(monkeypatch):
@@ -73,3 +74,21 @@ def test_is_env_stale_mtime_equal_returns_false(monkeypatch):
         mtime = p.stat().st_mtime
         entry = {"env": str(p), "root": True, "last_cached": mtime}
         assert is_env_stale(p, entry) is False
+
+
+def test_read_write_cache_use_storage_when_provided(tmp_path):
+    """When storage is provided, read_cache/write_cache use storage.cache_file()."""
+    storage = DirectoryStorage(tmp_path)
+    data = {"x": {"_zushtype": "path", "exported": ["y"]}}
+    write_cache(data, storage=storage)
+    assert (tmp_path / "cache.json").exists()
+    assert read_cache(storage=storage) == data
+
+
+def test_read_write_sentry_use_storage_when_provided(tmp_path):
+    """When storage is provided, read_sentry/write_sentry use storage.sentry_file()."""
+    storage = DirectoryStorage(tmp_path)
+    data = [{"env": "/e", "root": True, "last_cached": 1.0}]
+    write_sentry(data, storage=storage)
+    assert (tmp_path / "sentry.json").exists()
+    assert read_sentry(storage=storage) == data

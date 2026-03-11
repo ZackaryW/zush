@@ -7,6 +7,7 @@ import pytest
 
 from zush import config as config_module
 from zush.config import load_config, Config
+from zush.paths import DirectoryStorage
 
 
 def test_load_config_missing_file_returns_defaults(monkeypatch):
@@ -79,3 +80,14 @@ def test_load_config_playground_optional(monkeypatch):
         assert "play" in str(cfg.playground)
     finally:
         path.unlink(missing_ok=True)
+
+
+def test_load_config_uses_storage_when_provided(tmp_path):
+    """When storage is provided, load from storage.config_file()."""
+    config_path = tmp_path / "config.toml"
+    config_path.write_text('envs = ["/custom/env"]\nenv_prefix = ["custom_"]', encoding="utf-8")
+    storage = DirectoryStorage(tmp_path)
+    cfg = load_config(storage=storage)
+    assert len(cfg.envs) == 1
+    assert "custom" in str(cfg.envs[0])
+    assert cfg.env_prefix == ["custom_"]

@@ -4,14 +4,17 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from zush import paths
 
+if TYPE_CHECKING:
+    from zush.paths import ZushStorage
 
-def read_cache() -> dict[str, Any]:
-    """Read cache.json. Returns {} if missing or invalid."""
-    p = paths.cache_file()
+
+def read_cache(storage: ZushStorage | None = None) -> dict[str, Any]:
+    """Read cache.json. Uses storage.cache_file() when provided, else default path. Returns {} if missing or invalid."""
+    p = storage.cache_file() if storage is not None else paths.cache_file()
     if not p.exists():
         return {}
     try:
@@ -21,17 +24,17 @@ def read_cache() -> dict[str, Any]:
         return {}
 
 
-def write_cache(data: dict[str, Any]) -> None:
-    """Write cache.json. Creates parent dir if needed."""
-    p = paths.cache_file()
+def write_cache(data: dict[str, Any], storage: ZushStorage | None = None) -> None:
+    """Write cache.json. Uses storage.cache_file() when provided. Creates parent dir if needed."""
+    p = storage.cache_file() if storage is not None else paths.cache_file()
     p.parent.mkdir(parents=True, exist_ok=True)
     with open(p, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 
 
-def read_sentry() -> list[dict[str, Any]]:
-    """Read sentry.json. Returns [] if missing or invalid."""
-    p = paths.sentry_file()
+def read_sentry(storage: ZushStorage | None = None) -> list[dict[str, Any]]:
+    """Read sentry.json. Uses storage.sentry_file() when provided. Returns [] if missing or invalid."""
+    p = storage.sentry_file() if storage is not None else paths.sentry_file()
     if not p.exists():
         return []
     try:
@@ -42,9 +45,9 @@ def read_sentry() -> list[dict[str, Any]]:
         return []
 
 
-def write_sentry(data: list[dict[str, Any]]) -> None:
-    """Write sentry.json. Creates parent dir if needed."""
-    p = paths.sentry_file()
+def write_sentry(data: list[dict[str, Any]], storage: ZushStorage | None = None) -> None:
+    """Write sentry.json. Uses storage.sentry_file() when provided. Creates parent dir if needed."""
+    p = storage.sentry_file() if storage is not None else paths.sentry_file()
     p.parent.mkdir(parents=True, exist_ok=True)
     with open(p, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)

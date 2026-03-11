@@ -26,4 +26,5 @@ env_prefix = ["zush_"]
 
 ## Packages
 
-- **zush_demo** — Minimal plugin with `zush demo greet` that prints a message. Use it to verify discovery, hooks, and CLI behavior.
+- **zush_demo** — Minimal plugin with `zush demo greet` that prints a message. Use it to verify discovery and CLI behavior.
+- **zush_hooks_demo** — Demonstrates hook behavior: `hooks run` (before/after), `hooks raise` (on_error), `hooks setctx` (on_ctx_match). Tests in `tests/test_playground_hooks.py` run the CLI to verify.

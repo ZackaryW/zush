@@ -32,14 +32,10 @@ flowchart LR
 4. Merge plugin commands into ZushGroup (first-wins; skip keys under `self`); add reserved **self** group with **map** command.
 5. Register hooks from plugin instances; invoke CLI with remaining argv.
 
-## Key paths
+## Key paths and storage
 
-| Purpose    | Path / location |
-|-----------|------------------|
-| Config dir | `~/.zush/` |
-| Config file | `config.toml` |
-| Cache | `cache.json` |
-| Sentry | `sentry.json` |
+- **Default**: Config dir `~/.zush/`; config file `config.toml`; cache `cache.json`; sentry `sentry.json`.
+- **Pluggable**: **ZushStorage** protocol provides config_dir(), config_file(), cache_file(), sentry_file(). Default implementation = current paths. When embedding, caller can pass a storage (e.g. different base path). Config and cache modules accept optional storage; discovery passes storage through.
 | Plugin marker | `__zush__.py` at package root |
 | Plugin export | `ZushPlugin` with dict of name → ClickGroup/ClickCommand |
 

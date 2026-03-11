@@ -13,11 +13,15 @@
 - **Playground**: Repo `playground/zush_demo`; run e.g. `uv run zush --mock-path ./playground demo greet` or `zush self map`.
 - **Tests**: 38 tests (paths, config, context, cache, plugin_loader, discovery, group including self reserved); pytest; all passing.
 
+## What was just completed
+
+- **Mountable zush**: ZushStorage protocol + default_storage() + DirectoryStorage; load_config(storage=), read_cache/read_sentry/write_cache/write_sentry(storage=); run_discovery(storage=); create_zush_group(name, config, storage, mock_path) returning Click Group; main() refactored to use factory. Embedding: parent app can add_command(create_zush_group(), "zush"). All 52 tests pass.
+
 ## What's left (optional)
 
 - More reserved commands under `self` (e.g. config dump, cache clear).
 - Plugin author doc (hook attribute names, ZushPlugin contract).
-- Integration test for `zush self map` output.
+- Full storage provider (read/write interface) for non-file backends.
 
 ## Current status
 

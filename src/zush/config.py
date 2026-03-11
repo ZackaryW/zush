@@ -5,8 +5,12 @@ from __future__ import annotations
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from zush import paths
+
+if TYPE_CHECKING:
+    from zush.paths import ZushStorage
 
 
 @dataclass
@@ -18,10 +22,10 @@ class Config:
     playground: Path | None = None
 
 
-def load_config() -> Config:
-    """Load config from config.toml. Returns defaults if missing or invalid."""
+def load_config(storage: ZushStorage | None = None) -> Config:
+    """Load config from config.toml. Uses storage.config_file() when provided, else default paths. Returns defaults if missing or invalid."""
     default = Config(envs=[], env_prefix=["zush_"], playground=None)
-    p = paths.config_file()
+    p = storage.config_file() if storage is not None else paths.config_file()
     if not p.exists():
         return default
     try:

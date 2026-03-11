@@ -3,28 +3,32 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from zush import paths
 from zush.cache import read_cache, write_cache, read_sentry, write_sentry, is_env_stale
 from zush.config import Config
 from zush.plugin_loader import load_plugin
 
+if TYPE_CHECKING:
+    from zush.paths import ZushStorage
+
 
 def run_discovery(
     config: Config,
     mock_path: Path | None = None,
     no_cache: bool = False,
+    storage: ZushStorage | None = None,
 ) -> tuple[list[tuple[Path, object, dict[str, Any]]], dict[str, Any]]:
     """Scan config.envs for packages matching env_prefix with __zush__.py;
     load plugins, merge command trees, update cache and sentry (unless no_cache).
     If mock_path is set, only that path is scanned (overload env). If no_cache is True,
-    sentry/cache are not read or written.
+    sentry/cache are not read or written. When storage is provided, read/write use it.
     Returns ([(package_path, instance, commands_dict), ...], merged_tree).
     """
     all_plugins: list[tuple[Path, object, dict[str, Any]]] = []
     merged_tree: dict[str, Any] = {}
-    sentry = [] if no_cache else read_sentry()
+    sentry = [] if no_cache else read_sentry(storage=storage)
     cache_entries: list[dict[str, Any]] = []
     seen_envs: set[str] = set()
 
@@ -78,8 +82,8 @@ def run_discovery(
             _merge_commands_into_tree(merged_tree, commands, str(child.resolve()))
 
     if not no_cache and cache_entries:
-        write_sentry(cache_entries)
-        write_cache(merged_tree)
+        write_sentry(cache_entries, storage=storage)
+        write_cache(merged_tree, storage=storage)
     return all_plugins, merged_tree
 
 
