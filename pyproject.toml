@@ -1,7 +1,7 @@
 [project]
 name = "zush"
 version = "0.1.0"
-description = "Add your description here"
+description = "Zush is a CLI framework for building nested CLI applications."
 readme = "README.md"
 authors = [
     { name = "ZackaryW", email = "36378555+ZackaryW@users.noreply.github.com" }
