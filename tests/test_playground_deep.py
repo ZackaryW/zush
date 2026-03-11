@@ -8,6 +8,8 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PLAYGROUND = REPO_ROOT / "playground"
 DEEP_LEAF_MARKER = "ZUSH_DEEP_LEAF_OK"
+SHARED_APPENDED_MARKER = "ZUSH_SHARED_APPENDED_FROM_DEEP"
+SHARED_HELLO_MARKER = "ZUSH_SHARED_HELLO_FROM_DEMO"
 
 
 def _run_zush(*args: str) -> subprocess.CompletedProcess:
@@ -57,3 +59,33 @@ def test_deep_tree_help_shows_nesting() -> None:
     result3 = _run_zush("deep", "a", "b", "c", "d", "--help")
     assert result3.returncode == 0
     assert "leaf" in (result3.stdout + result3.stderr)
+
+
+# --- Appending under another plugin's group ---
+
+
+def test_shared_group_command_from_first_plugin() -> None:
+    """'shared' group is created by zush_demo; zush shared hello runs demo's command."""
+    result = _run_zush("shared", "hello")
+    assert result.returncode == 0
+    out = result.stdout + result.stderr
+    assert SHARED_HELLO_MARKER in out
+
+
+def test_shared_appended_command_from_other_plugin() -> None:
+    """zush_deep_demo appends under 'shared'; zush shared nested from deep run runs deep_demo's command."""
+    result = _run_zush("shared", "nested", "from", "deep", "run")
+    assert result.returncode == 0
+    out = result.stdout + result.stderr
+    assert SHARED_APPENDED_MARKER in out
+
+
+def test_self_map_shows_shared_with_both_plugin_branches() -> None:
+    """self map shows shared with both hello (demo) and nested/from/deep/run (deep_demo)."""
+    result = _run_zush("self", "map")
+    assert result.returncode == 0
+    out = result.stdout + result.stderr
+    assert "shared" in out
+    assert "hello" in out
+    assert "nested" in out
+    assert "run" in out
