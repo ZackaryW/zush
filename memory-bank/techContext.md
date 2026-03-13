@@ -17,11 +17,12 @@
 ## Modules (src/zush)
 
 - **paths**: config_dir, config_file, cache_file, sentry_file; **storage**: ZushStorage protocol, default_storage().
-- **config**: Config(envs, env_prefix, playground), load_config(storage=None).
+- **envs**: Helpers for resolving environment roots (e.g. `current_site_package_dirs()` for the current interpreter).
+- **config**: Config(envs, env_prefix, playground, include_current_env), load_config(storage=None).
 - **context**: ZushCtx (observable dict), HookRegistry (before_cmd, after_cmd, on_error).
 - **cache**: read/write cache and sentry with optional storage; is_env_stale().
 - **plugin_loader**: load_plugin(package_path) → (instance, commands_dict).
-- **discovery**: run_discovery(config, mock_path=None, no_cache=False, storage=None).
+- **discovery**: run_discovery(config, mock_path=None, no_cache=False, storage=None), honoring include_current_env when building envs_to_scan.
 - **group**: merge_commands_into_group (first-wins; skip `self`), ZushGroup, add_reserved_self_group (self + map).
 - **__init__**: create_zush_group(name, config, storage), main() (uses factory with defaults; parse --mock-path).
 

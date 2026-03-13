@@ -16,6 +16,7 @@ zush is a Python shell that discovers and runs a set of "shells" (plugins) follo
 - **envs**: List of paths (folder paths and/or Python site-packages directories) to scan for plugins.
 - **playground**: Optional path to an **overloaded index env**. When set, this directory is scanned first; plugins from the playground take precedence (first-wins merge). Use for local testing (e.g. repo `playground/` with packages that simulate plugins).
 - **env_prefix**: List of strings, default `["zush_"]`. Used to filter which packages are considered zush plugins (name must match one of the prefixes).
+- **include_current_env**: Optional boolean; when true, discovery also scans the current interpreter's site-packages (e.g. the uv-managed env running `zush`).
 
 **CLI overload (no config edit)**: `zush --mock-path <path> ...` (or `-m`) uses only that path as the env and **disables caching** (no cache/sentry read or write). Use for testing without touching config.toml.
 

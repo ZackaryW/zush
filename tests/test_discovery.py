@@ -94,3 +94,22 @@ plugin = type("P", (), {"commands": {"hi": click.Command("hi")}})()
     assert (storage.sentry_file()).exists()
     assert read_cache(storage=storage) != {}
     assert len(read_sentry(storage=storage)) >= 1
+
+
+def test_run_discovery_includes_current_env_when_flag_set(monkeypatch, tmp_path):
+    """When include_current_env is True, discovery scans current site-packages (via helper)."""
+    # Fake current site-packages to point at our temp env_root
+    env_root = tmp_path / "env"
+    env_root.mkdir()
+    pkg = env_root / "zush_foo"
+    pkg.mkdir()
+    (pkg / "__zush__.py").write_text(
+        """
+import click
+plugin = type("P", (), {"commands": {"hello": click.Command("hello")}})()
+"""
+    )
+    monkeypatch.setattr("zush.envs.current_site_package_dirs", lambda: [env_root])
+    cfg = Config(envs=[], env_prefix=["zush_"], playground=None, include_current_env=True)
+    plugins, _ = run_discovery(cfg)
+    assert any(p[0] == pkg for p in plugins)

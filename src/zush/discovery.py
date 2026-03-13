@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from zush import paths
+from zush import paths, envs
 from zush.cache import read_cache, write_cache, read_sentry, write_sentry, is_env_stale
 from zush.config import Config
 from zush.plugin_loader import load_plugin
@@ -35,9 +35,14 @@ def run_discovery(
     if mock_path is not None:
         envs_to_scan = [Path(mock_path)]
     else:
-        envs_to_scan = []
+        envs_to_scan: list[Path] = []
+        # 1) playground (overloaded index env)
         if getattr(config, "playground", None) is not None and Path(config.playground).is_dir():
             envs_to_scan.append(Path(config.playground))
+        # 2) optionally, current interpreter's site-packages
+        if getattr(config, "include_current_env", False):
+            envs_to_scan.extend(envs.current_site_package_dirs())
+        # 3) explicit envs from config
         envs_to_scan.extend(config.envs)
 
     for env_path in envs_to_scan:

@@ -27,8 +27,11 @@ flowchart LR
 ```
 
 1. Parse argv for `--mock-path`; if set, use only that path and no_cache.
-2. Read `~/.zush/config.toml` (envs, optional playground, env_prefix).
-3. Run discovery: scan envs (or [mock_path]); for each package matching prefix with `__zush__.py`, load plugin; merge command tree; read/write cache and sentry unless no_cache.
+2. Read `~/.zush/config.toml` (envs, optional playground, env_prefix, include_current_env).
+3. Run discovery: build envs_to_scan:
+   - If `mock_path` is set, use only that path and disable cache.
+   - Else: optionally add `playground`, then (if `include_current_env` is true) add current interpreter site-packages via `envs.current_site_package_dirs()`, then append explicit `envs`.
+   For each env, scan for packages matching prefix with `__zush__.py`, load plugin, merge command tree, and read/write cache and sentry unless no_cache.
 4. Merge plugin commands into ZushGroup (first-wins; skip keys under `self`); add reserved **self** group with **map** command.
 5. Register hooks from plugin instances; invoke CLI with remaining argv.
 

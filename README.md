@@ -45,6 +45,7 @@ uv run zush --mock-path ./playground demo greet
 | `envs`     | List of paths to scan for plugins (folders or site-packages). |
 | `env_prefix` | Package name prefix(es), default `["zush_"]`. Only packages whose name starts with one of these are loaded. |
 | `playground` | Optional path scanned first (overloaded index); first-wins merge. Good for local dev. |
+| `include_current_env` | Optional boolean; when true, also scan the current interpreter's site-packages (e.g. the uv env running `zush`). |
 
 Example:
 
@@ -52,9 +53,10 @@ Example:
 envs = ["/path/to/my/envs", "/another/path"]
 env_prefix = ["zush_", "my_"]
 playground = "/path/to/zush/playground"   # optional
+include_current_env = true                # also scan the env running `zush`
 ```
 
-Config, cache, and sentry live under `~/.zush/` by default. When [embedding](#embedding) zush, you can pass a custom storage so config/cache use a different directory.
+Config, cache, and sentry live under `~/.zush/` by default. When [embedding](#embedding) zush, you can pass a custom storage so config/cache use a different directory; include_current_env controls whether the *current* interpreter's site-packages are also scanned.
 
 ## Plugins
 

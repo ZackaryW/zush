@@ -2,7 +2,7 @@
 
 ## What works
 
-- **Config**: load_config() from ~/.zush/config.toml (envs, env_prefix, optional playground).
+- **Config**: load_config() from ~/.zush/config.toml (envs, env_prefix, optional playground, include_current_env flag).
 - **CLI overload**: `--mock-path` / `-m` parsed in main(); single env, no cache.
 - **Discovery**: run_discovery() scans envs (or mock_path), loads plugins, merges tree, updates cache/sentry unless no_cache; playground in config scanned first.
 - **Plugin loader**: load_plugin() from __zush__.py; instance with .commands; prefer ZushPlugin.
@@ -15,7 +15,8 @@
 
 ## What was just completed
 
-- **Mountable zush**: ZushStorage protocol + default_storage() + DirectoryStorage; load_config(storage=), read_cache/read_sentry/write_cache/write_sentry(storage=); run_discovery(storage=); create_zush_group(name, config, storage, mock_path) returning Click Group; main() refactored to use factory. Embedding: parent app can add_command(create_zush_group(), "zush"). All 52 tests pass.
+- **Mountable zush**: ZushStorage protocol + default_storage() + DirectoryStorage; load_config(storage=), read_cache/read_sentry/write_cache/write_sentry(storage=); run_discovery(storage=); create_zush_group(name, config, storage, mock_path) returning Click Group; main() refactored to use factory. Embedding: parent app can add_command(create_zush_group(), "zush").
+- **Env resolution flag**: `include_current_env` added to config; `zush.envs.current_site_package_dirs()` added; discovery now optionally scans the current interpreter's site-packages when the flag is true. All 65 tests pass.
 
 ## What's left (optional)
 

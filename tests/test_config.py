@@ -17,6 +17,8 @@ def test_load_config_missing_file_returns_defaults(monkeypatch):
         cfg = load_config()
     assert cfg.env_prefix == ["zush_"]
     assert cfg.envs == []
+    assert cfg.playground is None
+    assert cfg.include_current_env is False
 
 
 def test_load_config_invalid_toml_returns_defaults(monkeypatch):
@@ -29,6 +31,8 @@ def test_load_config_invalid_toml_returns_defaults(monkeypatch):
         cfg = load_config()
         assert cfg.env_prefix == ["zush_"]
         assert cfg.envs == []
+        assert cfg.playground is None
+        assert cfg.include_current_env is False
     finally:
         path.unlink(missing_ok=True)
 
@@ -66,6 +70,19 @@ def test_config_has_envs_and_env_prefix():
     cfg = Config(envs=[], env_prefix=["zush_"])
     assert cfg.envs == []
     assert cfg.env_prefix == ["zush_"]
+
+
+def test_load_config_include_current_env_optional(monkeypatch):
+    """include_current_env is optional; when set to true, flag is True."""
+    with tempfile.NamedTemporaryFile(suffix=".toml", delete=False) as f:
+        f.write(b'envs = []\ninclude_current_env = true')
+        path = Path(f.name)
+    try:
+        monkeypatch.setattr(config_module.paths, "config_file", lambda: path)
+        cfg = load_config()
+        assert cfg.include_current_env is True
+    finally:
+        path.unlink(missing_ok=True)
 
 
 def test_load_config_playground_optional(monkeypatch):

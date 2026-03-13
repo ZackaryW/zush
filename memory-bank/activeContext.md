@@ -2,7 +2,7 @@
 
 ## Current focus
 
-Mountable zush is implemented. Next optional work: document embedding in README or plugin guide; more reserved commands; full read/write storage provider for non-file backends.
+Mountable zush is implemented. Config now has an `include_current_env` flag and discovery can optionally scan the current interpreter's site-packages via `zush.envs.current_site_package_dirs()`. Next optional work: document embedding and env resolution in README or plugin guide; more reserved commands; full read/write storage provider for non-file backends.
 
 ## Recent changes
 

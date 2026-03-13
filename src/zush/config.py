@@ -15,16 +15,19 @@ if TYPE_CHECKING:
 
 @dataclass
 class Config:
-    """Zush config: envs to scan, optional playground (overloaded index env), and package name prefix."""
+    """Zush config: envs to scan, optional playground (overloaded index env),
+    package name prefix, and optional inclusion of current env's site-packages.
+    """
 
     envs: list[Path]
     env_prefix: list[str]
     playground: Path | None = None
+    include_current_env: bool = False
 
 
 def load_config(storage: ZushStorage | None = None) -> Config:
     """Load config from config.toml. Uses storage.config_file() when provided, else default paths. Returns defaults if missing or invalid."""
-    default = Config(envs=[], env_prefix=["zush_"], playground=None)
+    default = Config(envs=[], env_prefix=["zush_"], playground=None, include_current_env=False)
     p = storage.config_file() if storage is not None else paths.config_file()
     if not p.exists():
         return default
@@ -49,4 +52,11 @@ def load_config(storage: ZushStorage | None = None) -> Config:
         env_prefix = ["zush_"]
     playground_raw = data.get("playground")
     playground = Path(playground_raw) if isinstance(playground_raw, str) else None
-    return Config(envs=envs, env_prefix=env_prefix, playground=playground)
+    include_current_env_raw = data.get("include_current_env", False)
+    include_current_env = bool(include_current_env_raw) if isinstance(include_current_env_raw, bool) else False
+    return Config(
+        envs=envs,
+        env_prefix=env_prefix,
+        playground=playground,
+        include_current_env=include_current_env,
+    )
