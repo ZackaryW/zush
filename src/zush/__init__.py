@@ -36,6 +36,7 @@ def create_zush_group(
         no_cache=mock_path is not None,
         storage=storage,
     )
+    _bind_plugin_runtime(plugins, storage)
     zush_ctx = ZushCtx()
     hook_registry = HookRegistry()
     _register_plugin_hooks(plugins, hook_registry, zush_ctx)
@@ -98,3 +99,11 @@ def _register_plugin_hooks(
         if on_ctx and isinstance(on_ctx, list):
             for key, value, cb in on_ctx:
                 zush_ctx.register_on_ctx_match(key, value, cb)
+
+
+def _bind_plugin_runtime(plugins: list[tuple], storage: ZushStorage) -> None:
+    """Bind runtime storage and plugin identity for helper-based plugin instances."""
+    for path, instance, _commands in plugins:
+        bind = getattr(instance, "_bind_runtime", None)
+        if callable(bind):
+            bind(path.name, storage)

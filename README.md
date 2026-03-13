@@ -91,6 +91,32 @@ p.group("hello", help="Greetings").command("say", callback=lambda: click.echo("H
 ZushPlugin = p
 ```
 
+**Persisted plugin config:** Helper-based plugins can persist state with `persistedCtx()`.
+
+```python
+import click
+from zush.plugin import Plugin
+
+@click.command("save")
+def save_cmd():
+    with ZushPlugin.persistedCtx() as state:
+        state["count"] = state.get("count", 0) + 1
+    click.echo("saved")
+
+p = Plugin()
+p.group("persist", help="Persisted state demo").command("save", callback=save_cmd.callback)
+ZushPlugin = p
+```
+
+By default this uses `~/.zush/cfg-index.json` to map the plugin package name to a UUID, then stores payload files under `~/.zush/cfgs/{uuid}/...`.
+
+- `with ZushPlugin.persistedCtx():` uses `zush.json`
+- `with ZushPlugin.persistedCtx("notes.txt"):` uses plain text
+- `with ZushPlugin.persistedCtx("settings.toml"):` uses TOML
+- `with ZushPlugin.persistedCtx("settings.yaml"):` uses YAML
+
+Persistence identity is package-name based. If the same plugin package name appears in multiple scanned envs, they intentionally share the same persisted config.
+
 See `playground/zush_demo` and `playground/zush_hooks_demo` for examples.
 
 ## Reserved group: `self`
@@ -106,7 +132,7 @@ Zush can be used as a **subcommand group** of another Click app, with its own co
 import click
 from zush import create_zush_group
 from zush.config import Config
-from zush.paths import DirectoryStorage
+from zush.paths import DirectoryStorage, temporary_storage
 from pathlib import Path
 
 app = click.Group("myapp")
@@ -118,11 +144,17 @@ app.add_command(create_zush_group(), "zush")
 storage = DirectoryStorage(Path("/myapp/data/zush"))
 config = Config(envs=[Path("/my/envs")], env_prefix=["zush_"])
 app.add_command(create_zush_group(config=config, storage=storage), "zush")
+
+# Temporary isolated storage (tests, demos, disposable sessions)
+with temporary_storage() as temp_storage:
+    app.add_command(create_zush_group(config=config, storage=temp_storage), "temp-zush")
 ```
 
 Then: `myapp zush self map`, `myapp zush <plugin commands>`, etc.
 
 **Factory signature:** `create_zush_group(name="zush", config=None, storage=None, mock_path=None)`. Omitted `config`/`storage` use default (load from `~/.zush`). `mock_path` overrides envs and disables cache for that run.
+
+If you need an isolated config/cache/cfg-index directory, use `temporary_storage()` from `zush.paths`. It yields a `DirectoryStorage` backed by a temp directory and cleans it up automatically when the context exits.
 
 ## Playground
 

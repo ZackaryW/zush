@@ -14,6 +14,9 @@ from typing import Any, Callable
 
 import click
 
+from zush.persistence import persisted_ctx
+from zush.paths import default_storage
+
 
 class Section:
     """Represents a group in the tree; use .group() to nest, .command() to add commands."""
@@ -49,10 +52,12 @@ class Section:
 class Plugin:
     """Build a plugin's .commands dict via chainable .group() and .command()."""
 
-    __slots__ = ("_commands",)
+    __slots__ = ("_commands", "_plugin_name", "_storage")
 
     def __init__(self) -> None:
         self._commands: dict[str, click.Command | click.Group] = {}
+        self._plugin_name: str | None = None
+        self._storage = None
 
     def group(self, name: str, help: str | None = None, **kwargs: Any) -> Section:
         """Add a top-level group and return a Section for it."""
@@ -64,3 +69,15 @@ class Plugin:
     def commands(self) -> dict[str, click.Command | click.Group]:
         """The commands dict (dotted keys). This is what the loader expects on the plugin instance."""
         return self._commands
+
+    def _bind_runtime(self, plugin_name: str, storage: Any | None = None) -> None:
+        """Bind runtime metadata needed by helper features such as persistedCtx()."""
+        self._plugin_name = plugin_name
+        self._storage = storage or default_storage()
+
+    def persistedCtx(self, name: str | None = None):
+        """Yield a persisted config object or text buffer for this plugin."""
+        if self._plugin_name is None:
+            raise RuntimeError("Plugin runtime is not bound; persistedCtx is unavailable")
+        storage = self._storage or default_storage()
+        return persisted_ctx(self._plugin_name, storage, filename=name)

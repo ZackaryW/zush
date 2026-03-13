@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Protocol
 
 
@@ -26,6 +28,16 @@ def sentry_file() -> Path:
     return config_dir() / "sentry.json"
 
 
+def cfg_index_file() -> Path:
+    """Return path to cfg-index.json."""
+    return config_dir() / "cfg-index.json"
+
+
+def cfg_dir() -> Path:
+    """Return path to the directory holding persisted plugin config payloads."""
+    return config_dir() / "cfgs"
+
+
 class ZushStorage(Protocol):
     """Protocol for config/cache/sentry paths. Enables custom base dir when embedding zush."""
 
@@ -33,6 +45,8 @@ class ZushStorage(Protocol):
     def config_file(self) -> Path: ...
     def cache_file(self) -> Path: ...
     def sentry_file(self) -> Path: ...
+    def cfg_index_file(self) -> Path: ...
+    def cfg_dir(self) -> Path: ...
 
 
 class _DefaultStorage:
@@ -50,10 +64,23 @@ class _DefaultStorage:
     def sentry_file(self) -> Path:
         return sentry_file()
 
+    def cfg_index_file(self) -> Path:
+        return cfg_index_file()
+
+    def cfg_dir(self) -> Path:
+        return cfg_dir()
+
 
 def default_storage() -> _DefaultStorage:
     """Return the default storage (paths under ~/.zush)."""
     return _DefaultStorage()
+
+
+@contextmanager
+def temporary_storage(prefix: str = "zush-"):
+    """Yield a DirectoryStorage backed by a temporary directory and clean it up on exit."""
+    with TemporaryDirectory(prefix=prefix) as temp_dir:
+        yield DirectoryStorage(Path(temp_dir))
 
 
 class DirectoryStorage:
@@ -73,3 +100,9 @@ class DirectoryStorage:
 
     def sentry_file(self) -> Path:
         return self._base / "sentry.json"
+
+    def cfg_index_file(self) -> Path:
+        return self._base / "cfg-index.json"
+
+    def cfg_dir(self) -> Path:
+        return self._base / "cfgs"
