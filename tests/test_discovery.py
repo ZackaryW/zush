@@ -113,3 +113,30 @@ plugin = type("P", (), {"commands": {"hello": click.Command("hello")}})()
     cfg = Config(envs=[], env_prefix=["zush_"], playground=None, include_current_env=True)
     plugins, _ = run_discovery(cfg)
     assert any(p[0] == pkg for p in plugins)
+
+
+def test_run_discovery_reloads_cached_plugins_for_unchanged_env(tmp_path):
+    """When an env is unchanged, discovery should rebuild live plugins from cache."""
+    env_root = tmp_path / "env"
+    env_root.mkdir()
+    pkg = env_root / "zush_foo"
+    pkg.mkdir()
+    (pkg / "__zush__.py").write_text(
+        """
+import click
+plugin = type("P", (), {"commands": {"hello": click.Command("hello")}})()
+"""
+    )
+    storage = DirectoryStorage(tmp_path / "data")
+    cfg = Config(envs=[env_root], env_prefix=["zush_"])
+
+    first_plugins, first_tree = run_discovery(cfg, storage=storage)
+
+    assert len(first_plugins) == 1
+    assert "hello" in first_tree
+
+    second_plugins, second_tree = run_discovery(cfg, storage=storage)
+
+    assert len(second_plugins) == 1
+    assert second_plugins[0][0] == pkg
+    assert "hello" in second_tree

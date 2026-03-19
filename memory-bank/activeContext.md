@@ -4,6 +4,10 @@
 
 Mountable zush is implemented. Config now has an `include_current_env` flag and discovery can optionally scan the current interpreter's site-packages via `zush.envs.current_site_package_dirs()`. Persisted plugin config is now supported through a dedicated cfg index file and UUID-backed payload directories. Same package names intentionally share the same persisted config entry. Storage also provides a `temporary_storage()` helper for isolated tempdir-backed runs. Next optional work: expand persistence tests for malformed files and nested TOML structures.
 
+Recent migration lesson: when moving a real package under zush discovery, `__zush__.py` must live in the installed package directory that matches the active `env_prefix`. Creating a separate sibling plugin package without also changing packaging and config is a predictable real-world failure mode.
+
+Recent discovery lesson: unchanged envs still need to contribute live plugins. Sentry can skip a filesystem rescan, but discovery must reload cached package paths into the live command tree or top-level help can degrade to `self` only even though plugin commands still exist in the scanned env.
+
 ## Recent changes
 
 - **create_zush_group(name, config, storage, mock_path)**: Factory returns built ZushGroup; main() uses it. Embedding: `app.add_command(create_zush_group(), "zush")`.
@@ -12,6 +16,7 @@ Mountable zush is implemented. Config now has an `include_current_env` flag and 
 - **`--mock-path` / `-m`**: Overload env, no cache. **Playground** and **zush_hooks_demo**; ZushGroup init fix (zush_ctx is not None check).
 - **Persisted plugin config**: Added `cfg-index.json` and `cfgs/` storage paths, a new `zush.persistence` module, and runtime binding for `zush.plugin.Plugin.persistedCtx(...)` supporting plain text, JSON, TOML, and YAML payloads keyed by plugin package name. Matching package names intentionally reuse the same cfg UUID.
 - **Temporary storage helper**: Added `zush.paths.temporary_storage()` to create an isolated tempdir-backed `DirectoryStorage` for tests, demos, and disposable sessions.
+- **Cached discovery rehydration**: When an env is unchanged according to sentry, discovery now reloads plugin packages from cached package paths instead of dropping that env from the live command tree.
 
 ## Active decisions and considerations
 
@@ -20,6 +25,8 @@ Mountable zush is implemented. Config now has an `include_current_env` flag and 
 - **Persistence model**: Keep `cache.json` focused on discovery. Persisted plugin config linkage lives in `cfg-index.json`, while payload files live under `cfgs/{uuid}/...`. Package name is the persistence identity, so matching names share config.
 - **Custom Click group**: ZushGroup holds ZushCtx and HookRegistry; first-wins merge; reserved `self` added after plugins.
 - **Hooks**: Inferred from plugin instance (before_cmd, after_cmd, on_error, on_ctx_match); never exposed as commands.
+- **Migration packaging rule**: For real migrations, `__zush__.py` belongs inside the installed package directory that zush will actually scan. Do not split a migrated package into a sibling plugin package unless the task explicitly includes packaging/build changes for that separate package.
+- **Cached env behavior**: Sentry is only an optimization for rescanning. It must not suppress live plugin registration for unchanged envs.
 
 ## Important patterns and preferences
 

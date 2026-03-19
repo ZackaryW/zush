@@ -4,9 +4,10 @@ import re
 
 import click
 import pytest
+from click.testing import CliRunner
 
 from zush.context import ZushCtx, HookRegistry
-from zush.group import ZushGroup, merge_commands_into_group
+from zush.group import ZushGroup, add_reserved_self_group, merge_commands_into_group
 
 
 def _invoke(group: click.Group, args: list[str]) -> click.Context:
@@ -109,3 +110,16 @@ def test_zush_group_runs_on_error_on_exception():
         _invoke(root, ["fail"])
     assert len(caught) == 1
     assert caught[0].args == ("oops",)
+
+
+def test_self_map_shows_live_root_commands() -> None:
+    """self map should print the full root tree, not only the reserved self group."""
+    root = ZushGroup("zush")
+    root.add_command(click.Command("applewood", callback=lambda: None), "applewood")
+    add_reserved_self_group(root)
+
+    result = CliRunner().invoke(root, ["self", "map"])
+
+    assert result.exit_code == 0
+    assert "applewood" in result.output
+    assert "self" in result.output

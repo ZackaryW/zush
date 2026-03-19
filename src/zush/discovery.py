@@ -28,6 +28,7 @@ def run_discovery(
     """
     all_plugins: list[tuple[Path, object, dict[str, Any]]] = []
     merged_tree: dict[str, Any] = {}
+    cached_tree = {} if no_cache else read_cache(storage=storage)
     sentry = [] if no_cache else read_sentry(storage=storage)
     cache_entries: list[dict[str, Any]] = []
     seen_envs: set[str] = set()
@@ -53,6 +54,9 @@ def run_discovery(
         if not no_cache:
             sentry_entry = _find_sentry_entry(sentry, env_str, root=True, package=None)
             if not is_env_stale(env_path, sentry_entry):
+                cached_paths = _cached_package_paths_for_env(cached_tree, env_path)
+                if cached_paths:
+                    _load_cached_plugins(cached_paths, all_plugins, merged_tree)
                 continue
         try:
             mtime = env_path.stat().st_mtime
@@ -90,6 +94,51 @@ def run_discovery(
         write_sentry(cache_entries, storage=storage)
         write_cache(merged_tree, storage=storage)
     return all_plugins, merged_tree
+
+
+def _load_cached_plugins(
+    package_paths: list[Path],
+    all_plugins: list[tuple[Path, object, dict[str, Any]]],
+    merged_tree: dict[str, Any],
+) -> None:
+    for package_path in package_paths:
+        try:
+            instance, commands = load_plugin(package_path)
+        except Exception:
+            continue
+        all_plugins.append((package_path, instance, commands))
+        _merge_commands_into_tree(merged_tree, commands, str(package_path.resolve()))
+
+
+def _cached_package_paths_for_env(cached_tree: dict[str, Any], env_path: Path) -> list[Path]:
+    env_root = env_path.resolve()
+    package_paths: list[Path] = []
+    seen: set[Path] = set()
+    for package_path in _iter_cached_package_paths(cached_tree):
+        if package_path.parent != env_root:
+            continue
+        if package_path in seen:
+            continue
+        seen.add(package_path)
+        package_paths.append(package_path)
+    return package_paths
+
+
+def _iter_cached_package_paths(node: dict[str, Any]) -> list[Path]:
+    package_paths: list[Path] = []
+    for key, value in (node or {}).items():
+        if key.startswith("_") or not isinstance(value, dict):
+            continue
+        raw_path = value.get("path")
+        if isinstance(raw_path, str):
+            try:
+                package_paths.append(Path(raw_path).resolve())
+            except OSError:
+                pass
+        children = value.get("children")
+        if isinstance(children, dict):
+            package_paths.extend(_iter_cached_package_paths(children))
+    return package_paths
 
 
 def _find_sentry_entry(

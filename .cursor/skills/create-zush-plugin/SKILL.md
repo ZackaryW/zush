@@ -19,6 +19,14 @@ current zush project. It covers:
 - How the plugin will be discovered (envs, env_prefix, playground, include_current_env).
 - How to verify the plugin using `--mock-path` or the current env.
 
+Primary expectation:
+
+- Create a real plugin package with `__zush__.py` in the target env root.
+- When migrating an existing installed package into zush, put `__zush__.py` inside that installed package if that package name is what will match `env_prefix` in the real environment.
+- Do **not** invent a second sibling plugin package name unless the user explicitly asks for a separate distribution and packaging/update steps are part of the task.
+- Do **not** default to placing user implementation in `zush/playground/` unless the user explicitly asks for a playground-only example or demo.
+- Use playground only for examples, temporary experiments, or zush-repo-local demos.
+
 ## When to Use
 
 The agent should apply this skill when:
@@ -34,6 +42,7 @@ Do **not** use this skill for generic Click apps; it is specific to this zush re
 - This repo’s zush architecture:
   - Plugins live in env paths under the configured `env_prefix` (default `"zush_"`).
   - Each plugin package exports an instance with a `.commands` dict in `__zush__.py`.
+  - Discovery works on the installed package directory name, not the distribution name and not a package that only exists in the workspace source tree.
   - Commands are registered via **dotted keys** (e.g. `"demo.greet"`, `"shared.hello"`).
   - `zush.plugin.Plugin` is the preferred helper for building `.commands`.
 - How discovery works:
@@ -52,8 +61,8 @@ When creating a new zush plugin, follow this workflow.
    - **Plugin name** (package name). Prefer a name that matches the current `env_prefix`,
      e.g. `zush_<something>`.
    - **Where it should live**:
-     - Inside this repo under `playground/` (for local testing), or
-     - In some other env path that will be added to `envs` or installed into the current env.
+     - In the target package/env root as a real plugin package, or
+     - Inside this repo under `playground/` only if the user explicitly wants a playground example.
    - **Desired commands and groups**:
      - Top-level command/group name(s) (e.g. `demo`, `tools`, `shared`).
      - Subcommands and depth (e.g. `demo greet`, `deep a b c d leaf`).
@@ -68,11 +77,16 @@ When creating a new zush plugin, follow this workflow.
 
 Depending on the user’s context:
 
-- **Playground-based plugin (recommended for this repo)**:
+- **Real plugin package in an env root (default)**:
+  - Place the plugin in the actual installed package directory that zush will scan.
+  - If the user is migrating an existing package and the configured prefix matches that package name, add `__zush__.py` to that package instead of creating a second sibling package.
+  - Only create a distinct plugin package such as `zush_<name>/` when the user explicitly wants a separate plugin distribution and you also update packaging so that package is installed in the scanned env.
+  - Prefer this when the request is to implement or migrate a real plugin, not just demo one.
+  - Verify with `uv run zush --mock-path <env-root> ...` before relying on config changes.
+
+- **Playground-based plugin (demo/example only)**:
   - Place the plugin under `playground/` as `playground/zush_<name>/`.
-  - The user can run:
-    - `uv run zush --mock-path ./playground <commands...>`
-  - No changes to `config.toml` are required.
+  - Use this only when the user explicitly wants a playground example, a throwaway demo, or asks to work inside the zush repo playground.
 
 - **Installed plugin in current env**:
   - Place the package somewhere that will be **installed into the uv env** (e.g. via editable install) or otherwise reachable from site-packages.
@@ -81,6 +95,13 @@ Depending on the user’s context:
     - An `envs` entry that points at the directory containing this package.
 
 Explain briefly which option you’re choosing and why.
+
+Before finishing, verify these four values line up in the real environment:
+
+1. The scanned directory in `envs` or `include_current_env`.
+2. The actual installed package directory name under that env.
+3. One of the configured `env_prefix` values.
+4. The presence of `__zush__.py` in that installed package directory.
 
 ### 3. Scaffold the package
 
@@ -151,6 +172,15 @@ If the user needs hooks:
 
 Depending on the chosen env strategy:
 
+- **Real env root via `--mock-path`**:
+  - Place the package in its real env root.
+  - Run commands via:
+
+    ```bash
+    uv run zush --mock-path /path/to/env-root self map
+    uv run zush --mock-path /path/to/env-root <group> <command> ...
+    ```
+
 - **Playground**:
   - Place the package under `playground/` in this repo.
   - Run commands via:
@@ -186,8 +216,8 @@ Use at least one of these flows:
 #### 5.1 Via `--mock-path`
 
 ```bash
-uv run zush --mock-path ./playground self map
-uv run zush --mock-path ./playground <group> <command> ...
+uv run zush --mock-path /path/to/env-root self map
+uv run zush --mock-path /path/to/env-root <group> <command> ...
 ```
 
 - Confirm the plugin’s group/command names appear in `self map`.
@@ -204,7 +234,23 @@ uv run zush <group> <command> ...
 
 Again, confirm presence in the tree and correct behavior.
 
-### 6. Example: plugin in this repo’s playground
+### 6. Example: plugin in a real package root
+
+When the user is implementing a real plugin package:
+
+1. If the migrated package itself is the thing zush should discover, create `src/example_pkg/__zush__.py` inside that package.
+2. Only use `src/zush_example/__init__.py` and `src/zush_example/__zush__.py` when the user explicitly wants a separate plugin package and the packaging is updated to install it.
+3. In `__zush__.py`, use the `Plugin` helper to define the command tree.
+4. Verify with:
+
+  ```bash
+  uv run zush --mock-path ./src self map
+  uv run zush --mock-path ./src example hello
+  ```
+
+5. Only add config-based discovery after the `--mock-path` flow is working.
+
+### 7. Example: plugin in this repo’s playground
 
 When the user wants a quick example in this repo:
 
@@ -226,6 +272,7 @@ When the user wants a quick example in this repo:
 
 - Prefer **`zush.plugin.Plugin`** over manually building `.commands` dicts; it keeps
   the plugin code consistent with the rest of the project (see `playground/zush_demo`).
+- If the user asks to create or migrate a real plugin, create `__zush__.py` in the actual installed target package first. Do not substitute a playground implementation or invent a sibling package name unless the task explicitly includes packaging changes for that sibling package.
 - Keep plugin callback functions small and focused; avoid heavy logic in `__zush__.py`.
 - When appending under shared groups, be mindful of **first-wins** behavior in
   `merge_commands_into_group`: the first plugin to register a given path "owns" the node;

@@ -31,7 +31,7 @@ flowchart LR
 3. Run discovery: build envs_to_scan:
    - If `mock_path` is set, use only that path and disable cache.
    - Else: optionally add `playground`, then (if `include_current_env` is true) add current interpreter site-packages via `envs.current_site_package_dirs()`, then append explicit `envs`.
-   For each env, scan for packages matching prefix with `__zush__.py`, load plugin, merge command tree, and read/write cache and sentry unless no_cache.
+  For each env, scan for packages matching prefix with `__zush__.py`, load plugin, merge command tree, and read/write cache and sentry unless no_cache. If an env is unchanged according to sentry, discovery should rehydrate plugin packages from cached package paths instead of skipping live registration entirely.
 4. Merge plugin commands into ZushGroup (first-wins; skip keys under `self`); add reserved **self** group with **map** command.
 5. Register hooks from plugin instances; invoke CLI with remaining argv.
 
@@ -47,6 +47,8 @@ flowchart LR
 - Plugin dict keys become the subcommand path (e.g. `some.one` → `zush some one`).
 - Nested groups/commands: e.g. `is` command under `some.one` → `zush some one is wrong` when `wrong` is the command name.
 - **Reserved**: Group name **`self`** is reserved; plugins cannot register under it. Built-in **`self`** group provides **`map`** (command tree).
+- For migrations, discovery is anchored to the installed package directory name in the scanned env. If `env_prefix = ["applewood_"]`, the reliable layout is `applewood_.../__zush__.py` inside the installed package; do not assume a separate sibling package will be discovered unless packaging and config are updated for that exact name.
+- Cache/sentry are performance shortcuts, not alternate sources of truth for the CLI tree. The live command graph must still be reconstructed for unchanged envs from cached package paths.
 
 ## Hooks and ZushCtx
 

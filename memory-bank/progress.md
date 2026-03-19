@@ -5,6 +5,7 @@
 - **Config**: load_config() from ~/.zush/config.toml (envs, env_prefix, optional playground, include_current_env flag).
 - **CLI overload**: `--mock-path` / `-m` parsed in main(); single env, no cache.
 - **Discovery**: run_discovery() scans envs (or mock_path), loads plugins, merges tree, updates cache/sentry unless no_cache; playground in config scanned first.
+- **Cached discovery**: unchanged envs can be rehydrated from cached package paths so the live CLI tree remains complete even when sentry skips a filesystem rescan.
 - **Plugin loader**: load_plugin() from __zush__.py; instance with .commands; prefer ZushPlugin.
 - **Context**: ZushCtx (observable dict, onCtxMatch on set), HookRegistry (before/after/onError with regex/type).
 - **Group**: ZushGroup with hooks, sub_ctx.obj = zush_ctx; merge_commands_into_group (first-wins; skip reserved `self`); add_reserved_self_group (self + map).
@@ -34,10 +35,17 @@
 
 ## Known issues
 
-- None. Cache/sentry and discovery behave as designed; reserved self is enforced.
+- Migration guidance needed tightening: real package migrations must keep `__zush__.py` inside the installed package that matches `env_prefix`, unless the task explicitly includes shipping and configuring a separate plugin package.
+- `self map` must be validated against real installed-package layouts, not only playground scenarios.
+
+## Recent fixes
+
+- Fixed `self map` root resolution so the printed tree reflects the live root group instead of only the reserved `self` subtree.
+- Fixed discovery for unchanged envs so sentry can skip rescanning without dropping cached plugin packages from the live command tree.
 
 ## Evolution of decisions
 
 - Custom Click group (ZushGroup) with custom invoke for hooks and sub_ctx.obj.
 - Plugin export via ZushPlugin instance and .commands dict; hooks inferred by instance type (before_cmd, after_cmd, on_error, on_ctx_match).
 - beforeCmd/afterCmd regex; onCtxMatch equality; first-wins merge; --mock-path for overload without config; reserved group `self` with `map`.
+- Documentation and skill guidance now explicitly require migration work to align installed package name, `env_prefix`, scanned env path, and `__zush__.py` placement before treating discovery as a cache or invalidation problem.

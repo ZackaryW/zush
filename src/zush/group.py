@@ -105,10 +105,7 @@ def add_reserved_self_group(root: click.Group) -> None:
 def _map_callback() -> None:
     """Click callback for 'zush self map'; finds root from context and prints tree."""
     ctx = click.get_current_context()
-    root_ctx = ctx
-    while root_ctx.parent is not None:
-        root_ctx = root_ctx.parent
-    root_group = root_ctx.command
+    root_group = ctx.find_root().command
     click.echo(root_group.name or "zush")
     _print_command_tree(root_group, "")
 

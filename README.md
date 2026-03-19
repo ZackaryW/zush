@@ -36,6 +36,8 @@ uv run zush --mock-path ./playground demo greet
 
 `--mock-path` / `-m` uses only that directory as the plugin env and disables cache/sentry.
 
+Normal config-based runs use cache and sentry. If an env has not changed, zush should still rebuild the live command tree from cached package paths; an unchanged env must not collapse the CLI down to `self` only.
+
 ## Config
 
 **Location:** `~/.zush/config.toml`
@@ -63,6 +65,19 @@ Config, cache, and sentry live under `~/.zush/` by default. When [embedding](#em
 - **Discovery:** From each env path, zush looks for **directories** whose name starts with one of the `env_prefix` values and that contain **`__zush__.py`** at the root.
 - **Contract:** In `__zush__.py`, export a plugin **instance** (e.g. an object with a `.commands` dict). `commands` is `dict[str, click.Command | click.Group]`; keys are dotted paths (e.g. `demo.greet`, `tools.convert`).
 - **Hooks (optional):** On the same instance you can define `before_cmd`, `after_cmd`, `on_error`, `on_ctx_match` (lists of patterns/callbacks). These are registered with the core and run around command execution or when the shared context is updated; they are **not** exposed as CLI commands.
+
+**Migration rule:** When migrating an existing package into zush discovery, put `__zush__.py` inside the installed package directory that zush will actually scan. If the package zush is meant to discover is `applewood_letty_chaos_photos`, the plugin entrypoint belongs at `applewood_letty_chaos_photos/__zush__.py` inside that installed package.
+
+**Do not split a migration into a second sibling plugin package by default.** A sibling package such as `zush_applewood_letty_chaos_photos` is only valid when the task explicitly requires a separate distribution and the packaging/install flow is updated to ship that package into the scanned environment.
+
+**Real-world check:** Before assuming discovery is broken, confirm all of the following line up in the same environment:
+
+- The directory listed in `envs` or discovered through `include_current_env`.
+- The installed package directory name under that env's `site-packages`.
+- A matching `env_prefix` value.
+- A `__zush__.py` file inside that installed package directory.
+
+If those line up but `zush` intermittently shows only `self`, the next thing to check is cached discovery behavior: unchanged envs must be rehydrated from cache into the live command tree, not skipped entirely.
 
 Minimal plugin:
 
@@ -159,6 +174,8 @@ If you need an isolated config/cache/cfg-index directory, use `temporary_storage
 ## Playground
 
 The **`playground/`** directory contains sample plugins (`zush_demo`, `zush_hooks_demo`). Use `--mock-path ./playground` to run against them without editing config. See `playground/README.md` for details.
+
+Playground examples are for demos and local verification only. They are not a substitute for placing `__zush__.py` in the real installed package when the task is a real migration.
 
 ## Development
 
