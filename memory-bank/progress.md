@@ -3,6 +3,7 @@
 ## What works
 
 - **Config**: load_config() from ~/.zush/config.toml (envs, env_prefix, optional playground, include_current_env flag).
+- **Config bootstrap**: when ~/.zush/config.toml is missing, zush creates a default config file and enables current-env scanning by default.
 - **CLI overload**: `--mock-path` / `-m` parsed in main(); single env, no cache.
 - **Discovery**: run_discovery() scans envs (or mock_path), loads plugins, merges tree, updates cache/sentry unless no_cache; playground in config scanned first.
 - **Cached discovery**: unchanged envs can be rehydrated from cached package paths so the live CLI tree remains complete even when sentry skips a filesystem rescan.
@@ -42,6 +43,7 @@
 
 - Fixed `self map` root resolution so the printed tree reflects the live root group instead of only the reserved `self` subtree.
 - Fixed discovery for unchanged envs so sentry can skip rescanning without dropping cached plugin packages from the live command tree.
+- Fixed first-run behavior so a missing `~/.zush/config.toml` no longer leaves zush with no scanned envs by default; zush now writes a bootstrap config with current-env scanning enabled.
 
 ## Evolution of decisions
 

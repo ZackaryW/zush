@@ -42,6 +42,8 @@ Normal config-based runs use cache and sentry. If an env has not changed, zush s
 
 **Location:** `~/.zush/config.toml`
 
+If the config file does not exist, zush now creates a bootstrap config on first run with `include_current_env = true` so plugins installed into the current interpreter are discoverable by default.
+
 | Key         | Description |
 |------------|-------------|
 | `envs`     | List of paths to scan for plugins (folders or site-packages). |

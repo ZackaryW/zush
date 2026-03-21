@@ -8,6 +8,8 @@ Recent migration lesson: when moving a real package under zush discovery, `__zus
 
 Recent discovery lesson: unchanged envs still need to contribute live plugins. Sentry can skip a filesystem rescan, but discovery must reload cached package paths into the live command tree or top-level help can degrade to `self` only even though plugin commands still exist in the scanned env.
 
+Recent bootstrap lesson: when `~/.zush/config.toml` is missing entirely, zush should create a bootstrap config automatically instead of silently running with no scanned envs. The generated config should enable `include_current_env` so installed plugins in the active interpreter are visible on first run.
+
 ## Recent changes
 
 - **create_zush_group(name, config, storage, mock_path)**: Factory returns built ZushGroup; main() uses it. Embedding: `app.add_command(create_zush_group(), "zush")`.
@@ -17,6 +19,7 @@ Recent discovery lesson: unchanged envs still need to contribute live plugins. S
 - **Persisted plugin config**: Added `cfg-index.json` and `cfgs/` storage paths, a new `zush.persistence` module, and runtime binding for `zush.plugin.Plugin.persistedCtx(...)` supporting plain text, JSON, TOML, and YAML payloads keyed by plugin package name. Matching package names intentionally reuse the same cfg UUID.
 - **Temporary storage helper**: Added `zush.paths.temporary_storage()` to create an isolated tempdir-backed `DirectoryStorage` for tests, demos, and disposable sessions.
 - **Cached discovery rehydration**: When an env is unchanged according to sentry, discovery now reloads plugin packages from cached package paths instead of dropping that env from the live command tree.
+- **Default config bootstrap**: Missing `config.toml` is now created automatically on first run with `env_prefix = ["zush_"]` and `include_current_env = true`.
 
 ## Active decisions and considerations
 

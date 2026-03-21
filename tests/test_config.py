@@ -13,12 +13,26 @@ from zush.paths import DirectoryStorage
 def test_load_config_missing_file_returns_defaults(monkeypatch):
     """When config.toml is missing, return default env_prefix and empty envs."""
     with tempfile.TemporaryDirectory() as d:
-        monkeypatch.setattr(config_module.paths, "config_file", lambda: Path(d) / "nonexistent.toml")
+        config_path = Path(d) / "config.toml"
+        monkeypatch.setattr(config_module.paths, "config_file", lambda: config_path)
         cfg = load_config()
     assert cfg.env_prefix == ["zush_"]
     assert cfg.envs == []
     assert cfg.playground is None
-    assert cfg.include_current_env is False
+    assert cfg.include_current_env is True
+
+
+def test_load_config_missing_file_creates_default_config(tmp_path):
+    """When config.toml is missing, zush creates a bootstrap config file."""
+    storage = DirectoryStorage(tmp_path)
+
+    cfg = load_config(storage=storage)
+
+    assert storage.config_file().exists()
+    body = storage.config_file().read_text(encoding="utf-8")
+    assert 'env_prefix = ["zush_"]' in body
+    assert "include_current_env = true" in body
+    assert cfg.include_current_env is True
 
 
 def test_load_config_invalid_toml_returns_defaults(monkeypatch):
@@ -32,7 +46,7 @@ def test_load_config_invalid_toml_returns_defaults(monkeypatch):
         assert cfg.env_prefix == ["zush_"]
         assert cfg.envs == []
         assert cfg.playground is None
-        assert cfg.include_current_env is False
+        assert cfg.include_current_env is True
     finally:
         path.unlink(missing_ok=True)
 

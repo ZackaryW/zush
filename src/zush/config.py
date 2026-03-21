@@ -22,15 +22,35 @@ class Config:
     envs: list[Path]
     env_prefix: list[str]
     playground: Path | None = None
-    include_current_env: bool = False
+    include_current_env: bool = True
+
+
+def default_config() -> Config:
+    return Config(envs=[], env_prefix=["zush_"], playground=None, include_current_env=True)
+
+
+def ensure_config_exists(storage: ZushStorage | None = None) -> Path:
+    """Create a bootstrap config.toml when one does not already exist."""
+    p = storage.config_file() if storage is not None else paths.config_file()
+    if p.exists():
+        return p
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(_default_config_toml(), encoding="utf-8")
+    return p
+
+
+def _default_config_toml() -> str:
+    return (
+        "envs = []\n"
+        'env_prefix = ["zush_"]\n'
+        "include_current_env = true\n"
+    )
 
 
 def load_config(storage: ZushStorage | None = None) -> Config:
     """Load config from config.toml. Uses storage.config_file() when provided, else default paths. Returns defaults if missing or invalid."""
-    default = Config(envs=[], env_prefix=["zush_"], playground=None, include_current_env=False)
-    p = storage.config_file() if storage is not None else paths.config_file()
-    if not p.exists():
-        return default
+    default = default_config()
+    p = ensure_config_exists(storage=storage)
     try:
         with open(p, "rb") as f:
             data = tomllib.load(f)
@@ -52,8 +72,8 @@ def load_config(storage: ZushStorage | None = None) -> Config:
         env_prefix = ["zush_"]
     playground_raw = data.get("playground")
     playground = Path(playground_raw) if isinstance(playground_raw, str) else None
-    include_current_env_raw = data.get("include_current_env", False)
-    include_current_env = bool(include_current_env_raw) if isinstance(include_current_env_raw, bool) else False
+    include_current_env_raw = data.get("include_current_env", True)
+    include_current_env = bool(include_current_env_raw) if isinstance(include_current_env_raw, bool) else True
     return Config(
         envs=envs,
         env_prefix=env_prefix,
