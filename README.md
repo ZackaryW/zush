@@ -140,6 +140,7 @@ See `playground/zush_demo` and `playground/zush_hooks_demo` for examples.
 
 - **`self`** is reserved; plugins cannot register commands under it.
 - Built-in command: **`zush self map`** — prints the command tree (like `tree`).
+- Built-in command: **`zush self config`** — opens the active zush config folder.
 
 ## Embedding
 

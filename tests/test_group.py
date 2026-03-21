@@ -1,6 +1,7 @@
 """TDD: ZushGroup and merge_commands_into_group."""
 
 import re
+from pathlib import Path
 
 import click
 import pytest
@@ -8,6 +9,7 @@ from click.testing import CliRunner
 
 from zush.context import ZushCtx, HookRegistry
 from zush.group import ZushGroup, add_reserved_self_group, merge_commands_into_group
+from zush.paths import DirectoryStorage
 
 
 def _invoke(group: click.Group, args: list[str]) -> click.Context:
@@ -123,3 +125,18 @@ def test_self_map_shows_live_root_commands() -> None:
     assert result.exit_code == 0
     assert "applewood" in result.output
     assert "self" in result.output
+
+
+def test_self_config_opens_storage_config_dir(monkeypatch, tmp_path: Path) -> None:
+    launched: list[str] = []
+    storage = DirectoryStorage(tmp_path)
+    root = ZushGroup("zush")
+
+    monkeypatch.setattr(click, "launch", lambda value, locate=False: launched.append(value) or 0)
+
+    add_reserved_self_group(root, storage=storage)
+    result = CliRunner().invoke(root, ["self", "config"])
+
+    assert result.exit_code == 0
+    assert launched == [str(tmp_path)]
+    assert tmp_path.exists()

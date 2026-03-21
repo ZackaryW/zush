@@ -11,6 +11,7 @@
 - **Context**: ZushCtx (observable dict, onCtxMatch on set), HookRegistry (before/after/onError with regex/type).
 - **Group**: ZushGroup with hooks, sub_ctx.obj = zush_ctx; merge_commands_into_group (first-wins; skip reserved `self`); add_reserved_self_group (self + map).
 - **Reserved self**: Group `self` with command `map` (tree-style command map); plugins cannot register under `self`.
+- **Reserved self**: Group `self` with commands `map` and `config`; plugins cannot register under `self`.
 - **main()**: argv parse → config → discovery → hooks → build CLI → add self → cli.main().
 - **Playground**: Repo `playground/zush_demo`; run e.g. `uv run zush --mock-path ./playground demo greet` or `zush self map`.
 - **Persisted plugin config**: `Plugin.persistedCtx()` now persists data by plugin package name via `cfg-index.json` and stores payload files under `cfgs/{uuid}/`, with support for plain text, JSON, TOML, and YAML. Matching package names intentionally share the same config entry.
@@ -44,6 +45,7 @@
 - Fixed `self map` root resolution so the printed tree reflects the live root group instead of only the reserved `self` subtree.
 - Fixed discovery for unchanged envs so sentry can skip rescanning without dropping cached plugin packages from the live command tree.
 - Fixed first-run behavior so a missing `~/.zush/config.toml` no longer leaves zush with no scanned envs by default; zush now writes a bootstrap config with current-env scanning enabled.
+- Added `zush self config` so users can open the active config folder directly, honoring custom storage when zush is embedded.
 
 ## Evolution of decisions
 

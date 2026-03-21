@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import click
+from pathlib import Path
 from typing import Any
 
 from zush.context import ZushCtx, HookRegistry
+from zush.paths import default_storage
 
 RESERVED_GROUP_NAME = "self"
 
@@ -87,8 +89,8 @@ def _command_path(ctx: click.Context) -> list[str]:
     return list(protected) + list(ctx.args)
 
 
-def add_reserved_self_group(root: click.Group) -> None:
-    """Add the reserved 'self' group with a 'map' command that prints the command tree."""
+def add_reserved_self_group(root: click.Group, storage: Any | None = None) -> None:
+    """Add the reserved 'self' group with built-in zush commands."""
     self_group = click.Group(
         RESERVED_GROUP_NAME,
         help="Reserved: built-in zush commands.",
@@ -98,7 +100,13 @@ def add_reserved_self_group(root: click.Group) -> None:
         callback=_map_callback,
         help="Print command tree (like tree).",
     )
+    config_cmd = click.Command(
+        "config",
+        callback=_config_callback(storage or default_storage()),
+        help="Open the target zush config folder.",
+    )
     self_group.add_command(map_cmd, "map")
+    self_group.add_command(config_cmd, "config")
     root.add_command(self_group, RESERVED_GROUP_NAME)
 
 
@@ -108,6 +116,15 @@ def _map_callback() -> None:
     root_group = ctx.find_root().command
     click.echo(root_group.name or "zush")
     _print_command_tree(root_group, "")
+
+
+def _config_callback(storage: Any):
+    def callback() -> None:
+        target = Path(storage.config_dir())
+        target.mkdir(parents=True, exist_ok=True)
+        click.launch(str(target))
+
+    return callback
 
 
 def _print_command_tree(group: click.Group, prefix: str) -> None:

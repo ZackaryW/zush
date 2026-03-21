@@ -42,7 +42,7 @@ def create_zush_group(
     _register_plugin_hooks(plugins, hook_registry, zush_ctx)
     cli = ZushGroup(name, zush_ctx=zush_ctx, hook_registry=hook_registry)
     merge_commands_into_group(cli, plugins)
-    add_reserved_self_group(cli)
+    add_reserved_self_group(cli, storage=storage)
     return cli
 
 
