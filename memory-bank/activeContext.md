@@ -2,7 +2,7 @@
 
 ## Current focus
 
-Mountable zush is implemented. Config now has an `include_current_env` flag and discovery can optionally scan the current interpreter's site-packages via `zush.envs.current_site_package_dirs()`. Persisted plugin config is now supported through a dedicated cfg index file and UUID-backed payload directories. Same package names intentionally share the same persisted config entry. Storage also provides a `temporary_storage()` helper for isolated tempdir-backed runs. Next optional work: expand persistence tests for malformed files and nested TOML structures.
+Provider-owned service lifecycle is now implemented. Helper plugins can declare a service, bind a lazy provider factory to that service, expose plugin-facing lifecycle commands through `ZushPlugin.runtime`, and opt into provider teardown/rebuild when the service restarts or stops. Config still supports `include_current_env`, persisted plugin config still uses the cfg index + UUID payload directories, and storage still supports `temporary_storage()` for isolated runs.
 
 Recent migration lesson: when moving a real package under zush discovery, `__zush__.py` must live in the installed package directory that matches the active `env_prefix`. Creating a separate sibling plugin package without also changing packaging and config is a predictable real-world failure mode.
 
@@ -38,6 +38,7 @@ Recent bootstrap lesson: when `~/.zush/config.toml` is missing entirely, zush sh
 - **Storage**: Paths-based abstraction (config_dir + file paths); same file I/O, pluggable base path. Optional later: full read/write provider for non-file backends.
 - **Persistence model**: Keep `cache.json` focused on discovery. Persisted plugin config linkage lives in `cfg-index.json`, while payload files live under `cfgs/{uuid}/...`. Package name is the persistence identity, so matching names share config.
 - **Custom Click group**: ZushGroup holds ZushCtx and HookRegistry; first-wins merge; reserved `self` added after plugins.
+- **Provider/service ownership model**: Keep plugin import side-effect free. Providers may depend on services, but service readiness should be ensured lazily at provider access time through the bound plugin runtime rather than during discovery.
 - **Hooks**: Inferred from plugin instance (before_cmd, after_cmd, on_error, on_ctx_match); never exposed as commands.
 - **Migration packaging rule**: For real migrations, `__zush__.py` belongs inside the installed package directory that zush will actually scan. Do not split a migrated package into a sibling plugin package unless the task explicitly includes packaging/build changes for that separate package.
 - **Cached env behavior**: Sentry is only an optimization for rescanning. It must not suppress live plugin registration for unchanged envs.

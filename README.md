@@ -204,6 +204,14 @@ With that setup:
 - the provider is rebuilt after `web` restarts or stops
 - the previous provider instance is passed to `teardown` before replacement
 
+The runtime object passed to factories can also be used directly from plugin commands when you want plugin-facing lifecycle controls instead of only relying on `self services`:
+
+```python
+@click.command("restart")
+def restart_cmd():
+    click.echo(ZushPlugin.runtime.restart_service("web"))
+```
+
 Objects in `zush.runtime.g` are not persisted to disk and are only available for the current process.
 
 ## Persisted Plugin State
@@ -336,6 +344,13 @@ p.service(
 ```
 
 The test suite includes end-to-end service coverage with a real Flask subprocess and `httpx` clients, including restart behavior for unhealthy services.
+
+Combined with `provide_factory(...)`, this lets a single plugin package own:
+
+- the service declaration
+- the lifecycle control interface
+- the provider/control-surface object
+- the plugin-facing commands that use both
 
 ## Built-in Commands
 

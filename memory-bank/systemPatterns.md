@@ -62,9 +62,14 @@ flowchart LR
 
 - `ZushCtx` remains invocation-scoped and is attached to Click as `ctx.obj`.
 - `zush.runtime.g` is process-local and intended for live shared objects during a single zush process.
+- `zush.runtime.g` now supports lazy provider bindings registered through `Plugin.provide_factory(...)`; values are materialized on first access and can remain tied to a declared service lifecycle.
 - Detached services are a separate concept from runtime globals: service definitions come from plugins, control is owned by zush, and persisted state lives in `services.json`.
 - Built-in service control lives under `self services`; plugins declare the service interface, but zush performs start/stop/restart/status actions.
+- Services may provide a custom control interface (`start`, `stop`, `restart`, `status`) through `Plugin.service(...)`. zush uses that interface first and falls back to subprocess spawning/OS termination when needed.
+- Provider factories can declare `service=...`, `recreate_on_restart=True`, and `teardown=...`. zush invalidates those cached providers on service start/stop/restart, runs the teardown callback for the stale instance, and rebuilds the provider lazily on next access.
+- Each helper-based plugin now receives a bound runtime facade (`ZushPlugin.runtime`) that can call `ensure_service`, `start_service`, `stop_service`, `restart_service`, and `status_service` for services owned by that plugin.
 - Detached service integration should be validated with a real subprocess-backed app when behavior matters. Current coverage uses a temporary Flask app plus `httpx`-driven transactional endpoints to prove the full lifecycle works end to end.
+- Playground coverage now also includes a local example plugin that owns both a provider and a service control interface (`zush_provider_service_demo`) and is exercised through the real `uv run zush --mock-path ...` flow.
 
 ## Hooks and ZushCtx
 
