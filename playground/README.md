@@ -29,3 +29,4 @@ env_prefix = ["zush_"]
 - **zush_demo** — Minimal plugin with `zush demo greet` that prints a message. Use it to verify discovery and CLI behavior.
 - **zush_hooks_demo** — Demonstrates hook behavior: `hooks run` (before/after), `hooks raise` (on_error), `hooks setctx` (on_ctx_match). Tests in `tests/test_playground_hooks.py` run the CLI to verify.
 - **zush_deep_demo** — Deep command tree: `zush deep a b c d leaf` (5 levels of groups + leaf command). Tests in `tests/test_playground_deep.py` verify the tree appears in `self map` and the leaf command runs.
+- **zush_provider_service_demo** — Demonstrates one plugin package owning both a service control interface and a lazy provider factory. Try `uv run zush --mock-path ./playground provider info` and `uv run zush --mock-path ./playground provider restart`.

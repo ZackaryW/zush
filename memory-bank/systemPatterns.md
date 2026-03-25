@@ -58,6 +58,14 @@ flowchart LR
 - For discovery specifically, keep `run_discovery()` as the high-level orchestration entry point and move env list construction, live env scanning, cached path recovery, and tree merge helpers into `utils/discovery.py`.
 - If tests monkeypatch a module-level compatibility surface (for example `zush.discovery.paths`), preserve that attribute even when the implementation has been delegated elsewhere.
 
+## Runtime object and service model
+
+- `ZushCtx` remains invocation-scoped and is attached to Click as `ctx.obj`.
+- `zush.runtime.g` is process-local and intended for live shared objects during a single zush process.
+- Detached services are a separate concept from runtime globals: service definitions come from plugins, control is owned by zush, and persisted state lives in `services.json`.
+- Built-in service control lives under `self services`; plugins declare the service interface, but zush performs start/stop/restart/status actions.
+- Detached service integration should be validated with a real subprocess-backed app when behavior matters. Current coverage uses a temporary Flask app plus `httpx`-driven transactional endpoints to prove the full lifecycle works end to end.
+
 ## Hooks and ZushCtx
 
 ### Lifecycle

@@ -134,6 +134,78 @@ Plugins may optionally expose these attributes on the exported instance:
 
 These are lifecycle hooks for command execution and shared context changes. They are not exposed as CLI commands.
 
+## Runtime Globals
+
+zush also provides a process-local runtime object store at `zush.runtime.g`.
+
+This is useful for sharing live objects during a single zush process, for example:
+
+- schedulers
+- clients
+- registries
+- in-memory service handles
+
+Helper-based plugins can register objects into that store:
+
+```python
+from zush.plugin import Plugin
+
+
+p = Plugin()
+p.provide("scheduler", object())
+ZushPlugin = p
+```
+
+If the object should be created lazily, use `provide_factory(...)` instead. The value is materialized on first access through `zush.runtime.g` and then cached for the rest of the process:
+
+```python
+from zush.plugin import Plugin
+
+
+def build_scheduler():
+    return object()
+
+
+p = Plugin()
+p.provide_factory("scheduler", build_scheduler)
+ZushPlugin = p
+```
+
+Factories may also accept a plugin runtime object as their first argument. That runtime can start, stop, restart, or ensure readiness for services declared by the same plugin.
+
+When the provider depends on a service, declare that dependency directly so zush can ensure readiness before construction and invalidate the cached provider when the service changes:
+
+```python
+from zush.plugin import Plugin
+
+
+def build_client(runtime):
+    return MyClient(runtime)
+
+
+def close_client(client):
+    client.close()
+
+
+p = Plugin()
+p.provide_factory(
+    "client",
+    build_client,
+    service="web",
+    recreate_on_restart=True,
+    teardown=close_client,
+)
+ZushPlugin = p
+```
+
+With that setup:
+
+- zush ensures `web` is ready before the provider is first created
+- the provider is rebuilt after `web` restarts or stops
+- the previous provider instance is passed to `teardown` before replacement
+
+Objects in `zush.runtime.g` are not persisted to disk and are only available for the current process.
+
 ## Persisted Plugin State
 
 Helper-based plugins can persist state with `persistedCtx()`:
@@ -162,12 +234,116 @@ Supported payload types:
 - `persistedCtx("settings.toml")` for TOML
 - `persistedCtx("settings.yaml")` for YAML
 
+## Detached Services
+
+Plugins can also declare detached subprocess-backed services for zush to manage.
+
+Helper-based example:
+
+```python
+import sys
+
+from zush.plugin import Plugin
+
+
+p = Plugin()
+p.service(
+    "web",
+    [sys.executable, "-m", "flask", "run"],
+    auto_restart=True,
+)
+
+ZushPlugin = p
+```
+
+zush persists service registration and state in user data and exposes a built-in control surface:
+
+```bash
+zush self services web --start
+zush self services web --status
+zush self services web --restart
+zush self services web --stop
+```
+
+If a service is marked `auto_restart=True`, zush can restart it when it is missing or when its health check reports unhealthy.
+
+Services may also supply a custom control interface when subprocess spawning is not the only or best lifecycle mechanism. A control interface can implement `start(runtime)`, `stop(runtime)`, `restart(runtime)`, and `status(runtime)`. When present, zush uses those methods first and falls back to OS-level termination only when `terminate_fallback=True`.
+
+Example:
+
+```python
+from zush.plugin import Plugin
+
+
+class Control:
+    def start(self, runtime):
+        runtime.state["running"] = True
+        runtime.save()
+        return "started web"
+
+    def stop(self, runtime):
+        runtime.state["running"] = False
+        runtime.save()
+        return "stopped web"
+
+    def status(self, runtime):
+        return "healthy" if runtime.state.get("running") else "stopped"
+
+
+p = Plugin()
+p.service(
+    "web",
+    ["python", "app.py"],
+    control=Control(),
+    terminate_fallback=True,
+)
+ZushPlugin = p
+```
+
+This makes it possible for one plugin package to own both a provider object and the server/service it depends on.
+
+The playground contains a concrete example in [playground/README.md](playground/README.md) under `zush_provider_service_demo`.
+
+Health checks can be provided as callbacks that return either:
+
+- `True` or `False`
+- `(True, "message")` or `(False, "message")`
+
+Example:
+
+```python
+import httpx
+import sys
+
+from zush.plugin import Plugin
+
+
+def healthcheck(_state):
+    try:
+        response = httpx.get("http://127.0.0.1:5000/health", timeout=0.5)
+        return response.status_code == 200, f"status={response.status_code}"
+    except Exception as exc:
+        return False, str(exc)
+
+
+p = Plugin()
+p.service(
+    "web",
+    [sys.executable, "-m", "flask", "run", "--no-reload"],
+    auto_restart=True,
+    healthcheck=healthcheck,
+)
+```
+
+The test suite includes end-to-end service coverage with a real Flask subprocess and `httpx` clients, including restart behavior for unhealthy services.
+
 ## Built-in Commands
 
 The `self` group is reserved for zush itself.
 
 - `zush self map` prints the active command tree.
 - `zush self config` opens the active zush config directory.
+- `zush self services ...` manages plugin-declared detached services.
 
 Plugins cannot register commands under `self`.
 

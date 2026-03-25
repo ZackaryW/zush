@@ -11,11 +11,14 @@ from zush.context import ZushCtx, HookRegistry
 from zush.discovery import run_discovery
 from zush.group import ZushGroup, add_reserved_self_group, merge_commands_into_group
 from zush.paths import default_storage
+from zush.runtime import g
+from zush.services import ServiceController, collect_plugin_services
 from zush.utils.cli import (
     parse_mock_path as _parse_mock_path,
 )
 from zush.utils.plugin_runtime import (
-    bind_plugin_runtime as _bind_plugin_runtime,
+    bind_plugin_runtime_with_services as _bind_plugin_runtime,
+    register_plugin_globals as _register_plugin_globals,
     register_plugin_hooks as _register_plugin_hooks,
 )
 
@@ -42,13 +45,16 @@ def create_zush_group(
         no_cache=mock_path is not None,
         storage=storage,
     )
-    _bind_plugin_runtime(plugins, storage)
+    g.clear()
+    service_controller = ServiceController(storage, collect_plugin_services(plugins))
+    _bind_plugin_runtime(plugins, storage, service_controller)
+    _register_plugin_globals(plugins)
     zush_ctx = ZushCtx()
     hook_registry = HookRegistry()
     _register_plugin_hooks(plugins, hook_registry, zush_ctx)
     cli = ZushGroup(name, zush_ctx=zush_ctx, hook_registry=hook_registry)
     merge_commands_into_group(cli, plugins)
-    add_reserved_self_group(cli, storage=storage)
+    add_reserved_self_group(cli, storage=storage, service_controller=service_controller)
     return cli
 
 

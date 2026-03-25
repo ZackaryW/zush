@@ -28,6 +28,11 @@ def sentry_file() -> Path:
     return config_dir() / "sentry.json"
 
 
+def services_file() -> Path:
+    """Return path to services.json."""
+    return config_dir() / "services.json"
+
+
 def cfg_index_file() -> Path:
     """Return path to cfg-index.json."""
     return config_dir() / "cfg-index.json"
@@ -45,6 +50,7 @@ class ZushStorage(Protocol):
     def config_file(self) -> Path: ...
     def cache_file(self) -> Path: ...
     def sentry_file(self) -> Path: ...
+    def services_file(self) -> Path: ...
     def cfg_index_file(self) -> Path: ...
     def cfg_dir(self) -> Path: ...
 
@@ -63,6 +69,9 @@ class _DefaultStorage:
 
     def sentry_file(self) -> Path:
         return sentry_file()
+
+    def services_file(self) -> Path:
+        return services_file()
 
     def cfg_index_file(self) -> Path:
         return cfg_index_file()
@@ -100,6 +109,9 @@ class DirectoryStorage:
 
     def sentry_file(self) -> Path:
         return self._base / "sentry.json"
+
+    def services_file(self) -> Path:
+        return self._base / "services.json"
 
     def cfg_index_file(self) -> Path:
         return self._base / "cfg-index.json"

@@ -8,6 +8,7 @@ from typing import Any
 
 from zush.context import ZushCtx, HookRegistry
 from zush.paths import default_storage
+from zush.services import ServiceController
 from zush.utils.group import (
     command_path as _command_path,
     merge_commands_into_group as _merge_commands_into_group,
@@ -74,7 +75,11 @@ class ZushGroup(click.Group):
         return super().invoke(ctx)
 
 
-def add_reserved_self_group(root: click.Group, storage: Any | None = None) -> None:
+def add_reserved_self_group(
+    root: click.Group,
+    storage: Any | None = None,
+    service_controller: ServiceController | None = None,
+) -> None:
     """Add the reserved 'self' group with built-in zush commands."""
     self_group = click.Group(
         RESERVED_GROUP_NAME,
@@ -90,8 +95,21 @@ def add_reserved_self_group(root: click.Group, storage: Any | None = None) -> No
         callback=_config_callback(storage or default_storage()),
         help="Open the target zush config folder.",
     )
+    services_cmd = click.Command(
+        "services",
+        callback=_services_callback(service_controller),
+        params=[
+            click.Argument(["name"], required=False),
+            click.Option(["--start"], is_flag=True, default=False),
+            click.Option(["--stop"], is_flag=True, default=False),
+            click.Option(["--restart"], is_flag=True, default=False),
+            click.Option(["--status"], is_flag=True, default=False),
+        ],
+        help="Control registered detached services.",
+    )
     self_group.add_command(map_cmd, "map")
     self_group.add_command(config_cmd, "config")
+    self_group.add_command(services_cmd, "services")
     root.add_command(self_group, RESERVED_GROUP_NAME)
 
 
@@ -108,5 +126,38 @@ def _config_callback(storage: Any):
         target = Path(storage.config_dir())
         target.mkdir(parents=True, exist_ok=True)
         click.launch(str(target))
+
+    return callback
+
+
+def _services_callback(service_controller: ServiceController | None):
+    def callback(
+        name: str | None,
+        start: bool,
+        stop: bool,
+        restart: bool,
+        status: bool,
+    ) -> None:
+        if service_controller is None:
+            raise click.ClickException("Service controller is unavailable")
+        selected = [start, stop, restart, status]
+        if sum(1 for item in selected if item) > 1:
+            raise click.ClickException("Choose only one of --start, --stop, --restart, or --status")
+        if not name:
+            for service_name in service_controller.list_services():
+                click.echo(service_name)
+            return
+        try:
+            if start:
+                result = service_controller.start(name)
+            elif stop:
+                result = service_controller.stop(name)
+            elif restart:
+                result = service_controller.restart(name)
+            else:
+                result = service_controller.status(name)
+        except KeyError as exc:
+            raise click.ClickException(str(exc)) from exc
+        click.echo(result)
 
     return callback
