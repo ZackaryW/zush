@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
-from types import ModuleType
+
+from zush.utils.plugin_loader import find_plugin_instance as _find_plugin_instance
 
 
 def load_plugin(package_path: Path) -> tuple[object, dict[str, object]]:
@@ -30,18 +31,3 @@ def load_plugin(package_path: Path) -> tuple[object, dict[str, object]]:
     if not isinstance(commands, dict):
         raise ValueError(f"Plugin instance has no .commands dict in {module_path}")
     return instance, dict(commands)
-
-
-def _find_plugin_instance(module: ModuleType) -> object | None:
-    """Find an object in module that has a .commands dict. Prefer name ZushPlugin."""
-    if hasattr(module, "ZushPlugin"):
-        obj = getattr(module, "ZushPlugin")
-        if hasattr(obj, "commands") and isinstance(getattr(obj, "commands"), dict):
-            return obj
-    for name in dir(module):
-        if name.startswith("_"):
-            continue
-        obj = getattr(module, name)
-        if hasattr(obj, "commands") and isinstance(getattr(obj, "commands"), dict):
-            return obj
-    return None

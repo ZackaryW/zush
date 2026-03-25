@@ -20,6 +20,10 @@
 
 ## What was just completed
 
+- **Discovery helper extraction**: `run_discovery()` now delegates env list building and live env scanning to `utils/discovery.py`, with added direct tests for those helpers. Full suite now passes with 89 tests.
+- **Second-pass utils refactor**: Split mixed utility concerns into focused modules (`utils/cli.py`, `utils/plugin_runtime.py`, `utils/plugin_loader.py`), moved group command merging into `utils/group.py`, and added direct tests for extracted utility helpers. Full suite now passes with 87 tests.
+- **Test harness decoupling**: Playground subprocess tests now copy fixture plugins into temp envs and force UTF-8 subprocess I/O; the Applewood test now builds a local fixture package instead of depending on an external checkout.
+- **Internal utils delegation**: Added `src/zush/utils/` and moved shared helper implementations there while keeping runtime behavior unchanged. Full suite passes after the refactor.
 - **Mountable zush**: ZushStorage protocol + default_storage() + DirectoryStorage; load_config(storage=), read_cache/read_sentry/write_cache/write_sentry(storage=); run_discovery(storage=); create_zush_group(name, config, storage, mock_path) returning Click Group; main() refactored to use factory. Embedding: parent app can add_command(create_zush_group(), "zush").
 - **Env resolution flag**: `include_current_env` added to config; `zush.envs.current_site_package_dirs()` added; discovery now optionally scans the current interpreter's site-packages when the flag is true. All 65 tests pass.
 - **Persistence layer**: Added cfg index/storage paths, `zush.persistence`, runtime binding of helper plugins, and tests proving persisted state survives across invocations and is shared by matching package names. Full suite now passes with 74 tests.

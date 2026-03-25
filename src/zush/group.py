@@ -8,6 +8,11 @@ from typing import Any
 
 from zush.context import ZushCtx, HookRegistry
 from zush.paths import default_storage
+from zush.utils.group import (
+    command_path as _command_path,
+    merge_commands_into_group as _merge_commands_into_group,
+    print_command_tree as _print_command_tree,
+)
 
 RESERVED_GROUP_NAME = "self"
 
@@ -16,22 +21,8 @@ def merge_commands_into_group(
     group: click.Group,
     plugin_list: list[tuple[Any, Any, dict[str, click.Command | click.Group]]],
 ) -> None:
-    """Merge each plugin's commands dict into group. Dotted keys become nested groups.
-    First plugin to register a given path wins (overloaded index env, e.g. playground, takes precedence).
-    """
-    for _path, _instance, commands in plugin_list:
-        for key, obj in commands.items():
-            parts = key.split(".")
-            if parts[0] == RESERVED_GROUP_NAME:
-                continue
-            current = group
-            for part in parts[:-1]:
-                if part not in current.commands:
-                    current.add_command(click.Group(part), part)
-                current = current.commands[part]
-            name = parts[-1]
-            if name not in current.commands:
-                current.add_command(obj, name)
+    """Backward-compatible wrapper for the shared group merge helper."""
+    _merge_commands_into_group(group, plugin_list)
 
 
 class ZushGroup(click.Group):
@@ -83,12 +74,6 @@ class ZushGroup(click.Group):
         return super().invoke(ctx)
 
 
-def _command_path(ctx: click.Context) -> list[str]:
-    """Build command path: remaining args / protected_args form the subcommand chain."""
-    protected = getattr(ctx, "_protected_args", []) or []
-    return list(protected) + list(ctx.args)
-
-
 def add_reserved_self_group(root: click.Group, storage: Any | None = None) -> None:
     """Add the reserved 'self' group with built-in zush commands."""
     self_group = click.Group(
@@ -125,16 +110,3 @@ def _config_callback(storage: Any):
         click.launch(str(target))
 
     return callback
-
-
-def _print_command_tree(group: click.Group, prefix: str) -> None:
-    """Print children of group with tree-style chars; recurse for nested groups."""
-    names = sorted(group.commands.keys())
-    for i, child_name in enumerate(names):
-        last = i == len(names) - 1
-        branch = "└── " if last else "├── "
-        click.echo(prefix + branch + child_name)
-        cmd = group.commands[child_name]
-        if isinstance(cmd, click.Group):
-            new_prefix = prefix + ("    " if last else "│   ")
-            _print_command_tree(cmd, new_prefix)

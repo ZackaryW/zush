@@ -50,6 +50,14 @@ flowchart LR
 - For migrations, discovery is anchored to the installed package directory name in the scanned env. If `env_prefix = ["applewood_"]`, the reliable layout is `applewood_.../__zush__.py` inside the installed package; do not assume a separate sibling package will be discovered unless packaging and config are updated for that exact name.
 - Cache/sentry are performance shortcuts, not alternate sources of truth for the CLI tree. The live command graph must still be reconstructed for unchanged envs from cached package paths.
 
+## Internal utility delegation
+
+- Shared helper implementations that are not part of the public API can live under `src/zush/utils/`.
+- Feature modules such as discovery, persistence, group, envs, plugin loading, and CLI bootstrap may keep their existing local helper names but delegate the actual implementation to the matching utility module to reduce clutter without changing behavior.
+- Prefer focused utility modules by concern instead of a catch-all helper file. Current examples: CLI arg parsing, plugin runtime wiring, plugin instance discovery, group tree/merge helpers, discovery tree helpers, and persistence serialization helpers.
+- For discovery specifically, keep `run_discovery()` as the high-level orchestration entry point and move env list construction, live env scanning, cached path recovery, and tree merge helpers into `utils/discovery.py`.
+- If tests monkeypatch a module-level compatibility surface (for example `zush.discovery.paths`), preserve that attribute even when the implementation has been delegated elsewhere.
+
 ## Hooks and ZushCtx
 
 ### Lifecycle

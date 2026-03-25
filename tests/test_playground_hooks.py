@@ -1,31 +1,19 @@
-"""Verify hook behavior by running the zush CLI (subprocess) against the playground."""
+"""Verify hook behavior by running the zush CLI against copied playground fixtures."""
 
-import subprocess
-from pathlib import Path
+from tests.playground_helpers import copy_playground, make_subprocess_env, make_test_home, run_zush
 
-import pytest
-
-# Playground path (repo root from test file)
-REPO_ROOT = Path(__file__).resolve().parent.parent
-PLAYGROUND = REPO_ROOT / "playground"
 HOOK_MARKER = "ZUSH_HOOK"
 
 
-def _run_zush(*args: str) -> subprocess.CompletedProcess:
-    """Run zush via uv (uses project env); --mock-path playground then args."""
-    cmd = ["uv", "run", "zush", "--mock-path", str(PLAYGROUND)] + list(args)
-    return subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        cwd=REPO_ROOT,
-        timeout=15,
-    )
+def _run_zush(tmp_path, *args: str):
+    playground = copy_playground(tmp_path, "zush_hooks_demo")
+    home = make_test_home()
+    return run_zush(playground, *args, env=make_subprocess_env(home=home))
 
 
-def test_hooks_before_and_after_run() -> None:
+def test_hooks_before_and_after_run(tmp_path) -> None:
     """hooks.run: before_cmd and after_cmd both fire (command completes successfully)."""
-    result = _run_zush("hooks", "run")
+    result = _run_zush(tmp_path, "hooks", "run")
     assert result.returncode == 0
     out = result.stdout + result.stderr
     assert f"{HOOK_MARKER} before_cmd" in out
@@ -33,9 +21,9 @@ def test_hooks_before_and_after_run() -> None:
     assert "hooks.run completed" in out
 
 
-def test_hooks_on_error_fires() -> None:
+def test_hooks_on_error_fires(tmp_path) -> None:
     """hooks.raise: before_cmd fires, then on_error fires (command raises ValueError)."""
-    result = _run_zush("hooks", "raise")
+    result = _run_zush(tmp_path, "hooks", "raise")
     assert result.returncode != 0
     out = result.stdout + result.stderr
     assert f"{HOOK_MARKER} before_cmd" in out
@@ -44,9 +32,9 @@ def test_hooks_on_error_fires() -> None:
     assert "intentional error" in out
 
 
-def test_hooks_on_ctx_match_fires() -> None:
+def test_hooks_on_ctx_match_fires(tmp_path) -> None:
     """hooks.setctx: setting ctx.obj['trigger']=True fires on_ctx_match."""
-    result = _run_zush("hooks", "setctx")
+    result = _run_zush(tmp_path, "hooks", "setctx")
     assert result.returncode == 0
     out = result.stdout + result.stderr
     assert f"{HOOK_MARKER} on_ctx_match" in out

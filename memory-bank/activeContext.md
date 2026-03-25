@@ -12,6 +12,9 @@ Recent bootstrap lesson: when `~/.zush/config.toml` is missing entirely, zush sh
 
 ## Recent changes
 
+- **Discovery orchestration split**: Extracted environment selection and live env scanning helpers into `src/zush/utils/discovery.py`, leaving `run_discovery()` focused on cache/sentry orchestration and stale-env handling.
+- **Utils boundary tightened**: Split the earlier catch-all utility module into focused helpers for CLI arg parsing, plugin runtime binding/hook registration, and plugin-instance lookup. Group command merging now also lives in `src/zush/utils/group.py`.
+- **Internal utils package**: Added `src/zush/utils/` and delegated helper implementations for discovery, persistence, group tree rendering, env path deduplication, plugin hook/runtime helpers, and plugin-instance lookup into utility modules while preserving existing module behavior.
 - **create_zush_group(name, config, storage, mock_path)**: Factory returns built ZushGroup; main() uses it. Embedding: `app.add_command(create_zush_group(), "zush")`.
 - **ZushStorage**: Protocol + default_storage() + DirectoryStorage(base). config/cache/discovery accept optional storage.
 - **Reserved group `self`**: Plugin commands under `self` skipped; built-in `self` + **map**.

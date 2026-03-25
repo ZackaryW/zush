@@ -8,17 +8,7 @@ from typing import Iterable, List
 import site
 import sysconfig
 
-
-def _dedupe_paths(paths: Iterable[Path]) -> list[Path]:
-    seen: set[Path] = set()
-    out: list[Path] = []
-    for p in paths:
-        rp = p.resolve()
-        if rp in seen:
-            continue
-        seen.add(rp)
-        out.append(rp)
-    return out
+from zush.utils.envs import dedupe_paths as _dedupe_paths
 
 
 def current_site_package_dirs() -> list[Path]:
