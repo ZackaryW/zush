@@ -1,6 +1,8 @@
 """TDD: ZushGroup and merge_commands_into_group."""
 
+import os
 import re
+import sys
 from pathlib import Path
 
 import click
@@ -132,7 +134,10 @@ def test_self_config_opens_storage_config_dir(monkeypatch, tmp_path: Path) -> No
     storage = DirectoryStorage(tmp_path)
     root = ZushGroup("zush")
 
-    monkeypatch.setattr(click, "launch", lambda value, locate=False: launched.append(value) or 0)
+    if sys.platform.startswith("win") and hasattr(os, "startfile"):
+        monkeypatch.setattr(os, "startfile", lambda value: launched.append(value))
+    else:
+        monkeypatch.setattr(click, "launch", lambda value, locate=False: launched.append(value) or 0)
 
     add_reserved_self_group(root, storage=storage)
     result = CliRunner().invoke(root, ["self", "config"])
@@ -140,3 +145,22 @@ def test_self_config_opens_storage_config_dir(monkeypatch, tmp_path: Path) -> No
     assert result.exit_code == 0
     assert launched == [str(tmp_path)]
     assert tmp_path.exists()
+
+
+def test_self_config_reports_launch_failure(monkeypatch, tmp_path: Path) -> None:
+    storage = DirectoryStorage(tmp_path)
+    root = ZushGroup("zush")
+
+    if sys.platform.startswith("win") and hasattr(os, "startfile"):
+        def fail_startfile(value: str) -> None:
+            raise OSError("boom")
+
+        monkeypatch.setattr(os, "startfile", fail_startfile)
+    else:
+        monkeypatch.setattr(click, "launch", lambda value, locate=False: 127)
+
+    add_reserved_self_group(root, storage=storage)
+    result = CliRunner().invoke(root, ["self", "config"])
+
+    assert result.exit_code != 0
+    assert "Failed to open config directory" in result.output

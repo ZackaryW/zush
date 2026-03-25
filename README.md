@@ -36,6 +36,12 @@ Show the active command tree:
 zush self map
 ```
 
+Open the active zush config directory:
+
+```bash
+zush self config
+```
+
 Run a discovered plugin command:
 
 ```bash
@@ -76,6 +82,7 @@ include_current_env = true
 ```
 
 zush stores config, cache, and other runtime files under `~/.zush/` by default.
+On Windows, `zush self config` now uses the native directory opener and surfaces a CLI error if the folder cannot be opened.
 
 ## Plugin Layout
 

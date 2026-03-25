@@ -26,6 +26,7 @@ Recent bootstrap lesson: when `~/.zush/config.toml` is missing entirely, zush sh
 - **ZushStorage**: Protocol + default_storage() + DirectoryStorage(base). config/cache/discovery accept optional storage.
 - **Reserved group `self`**: Plugin commands under `self` skipped; built-in `self` + **map**.
 - **Reserved group `self`**: Plugin commands under `self` skipped; built-in `self` now includes **map** and **config**.
+- **`self config` launch behavior**: Opening the config directory must not fail silently. On Windows, use the native directory opener; on any platform, nonzero open failures should raise a ClickException.
 - **`--mock-path` / `-m`**: Overload env, no cache. **Playground** and **zush_hooks_demo**; ZushGroup init fix (zush_ctx is not None check).
 - **Persisted plugin config**: Added `cfg-index.json` and `cfgs/` storage paths, a new `zush.persistence` module, and runtime binding for `zush.plugin.Plugin.persistedCtx(...)` supporting plain text, JSON, TOML, and YAML payloads keyed by plugin package name. Matching package names intentionally reuse the same cfg UUID.
 - **Temporary storage helper**: Added `zush.paths.temporary_storage()` to create an isolated tempdir-backed `DirectoryStorage` for tests, demos, and disposable sessions.

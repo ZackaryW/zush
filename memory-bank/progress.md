@@ -35,6 +35,7 @@
 - **Env resolution flag**: `include_current_env` added to config; `zush.envs.current_site_package_dirs()` added; discovery now optionally scans the current interpreter's site-packages when the flag is true. All 65 tests pass.
 - **Persistence layer**: Added cfg index/storage paths, `zush.persistence`, runtime binding of helper plugins, and tests proving persisted state survives across invocations and is shared by matching package names. Full suite now passes with 74 tests.
 - **Temporary storage helper**: Added `zush.paths.temporary_storage()` plus tests and README docs for isolated tempdir-backed config/cache/cfg storage.
+- **Windows `self config` fix**: `zush self config` now opens the config directory with the native Windows opener when available and raises a ClickException on launch failure instead of silently succeeding. Focused group coverage was added and the full suite now passes with 103 tests.
 
 ## What's left (optional)
 

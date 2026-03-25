@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import sys
 import click
 from pathlib import Path
 from typing import Any
@@ -125,9 +127,22 @@ def _config_callback(storage: Any):
     def callback() -> None:
         target = Path(storage.config_dir())
         target.mkdir(parents=True, exist_ok=True)
-        click.launch(str(target))
+        _open_config_directory(target)
 
     return callback
+
+
+def _open_config_directory(target: Path) -> None:
+    if sys.platform.startswith("win") and hasattr(os, "startfile"):
+        try:
+            os.startfile(str(target))
+            return
+        except OSError as exc:
+            raise click.ClickException(f"Failed to open config directory: {target}") from exc
+
+    exit_code = click.launch(str(target))
+    if exit_code != 0:
+        raise click.ClickException(f"Failed to open config directory: {target}")
 
 
 def _services_callback(service_controller: ServiceController | None):
