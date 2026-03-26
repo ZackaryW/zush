@@ -27,14 +27,13 @@ class PluginCommand(click.Command):
     """Click command that exposes usage pieces in parent help listings."""
 
     def get_short_help_str(self, limit: int = 45) -> str:
-        help_text = super().get_short_help_str(limit)
         ctx = click.Context(self)
         usage = " ".join(self.collect_usage_pieces(ctx)).strip()
-        if not usage:
-            return help_text
-        if not help_text:
-            return usage
-        return f"{usage} {help_text}"
+        help_text = self.short_help or self.help or ""
+        summary = f"{usage} {help_text}".strip() if help_text else usage
+        if not summary:
+            return ""
+        return click.utils.make_default_short_help(summary, limit)
 
 
 class Section:

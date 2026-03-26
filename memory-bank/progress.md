@@ -2,7 +2,7 @@
 
 ## What works
 
-- **Plugin parent help summaries**: Helper-built plugin commands now show their Click usage pieces in parent help listings, so nested command help includes option and argument signatures alongside the short prose description.
+- **Plugin parent help summaries**: Helper-built plugin commands now show their Click usage pieces in parent help listings, so nested command help includes option and argument signatures alongside the short prose description while still respecting Click's short-help width limit for longer signatures.
 - **Config**: load_config() from ~/.zush/config.toml (envs, env_prefix, optional playground, include_current_env flag).
 - **Config bootstrap**: when ~/.zush/config.toml is missing, zush creates a default config file and enables current-env scanning by default.
 - **CLI overload**: `--mock-path` / `-m` parsed in main(); single env, no cache.
@@ -19,11 +19,11 @@
 - **Temporary storage helper**: `temporary_storage()` yields a tempdir-backed `DirectoryStorage` and cleans it up automatically.
 - **Runtime providers and services**: Plugins can declare static globals with `provide(...)`, lazy providers with `provide_factory(...)`, provider teardown/rebuild rules, detached services, custom service control interfaces, and provider-facing runtime lifecycle calls through `ZushPlugin.runtime`.
 - **Playground provider/service demo**: `playground/zush_provider_service_demo` shows one plugin package owning both a provider and a service control interface, with subprocess coverage through `uv run zush --mock-path ...`.
-- **Tests**: full pytest suite passes with 104 tests.
+- **Tests**: full pytest suite passes with 105 tests.
 
 ## What was just completed
 
-- **Parent help signature fix**: Added a regression test proving parent help for helper-built commands includes usage pieces like `[OPTIONS] [SOURCE]`, then updated the plugin helper to use a custom Click command subclass that surfaces those signatures in group help listings. Full suite now passes with 104 tests.
+- **Parent help signature fix**: Added regression coverage proving parent help for helper-built commands includes usage pieces like `[OPTIONS] [SOURCE]`, then refined the custom command subclass so longer signatures still honor Click's short-help width limit and truncate cleanly. Full suite now passes with 105 tests.
 - **Provider rebuild/teardown and playground demo**: Added service-aware provider invalidation with teardown hooks, so `provide_factory(..., service=..., recreate_on_restart=True, teardown=...)` can rebuild control surfaces after service stop/restart. Added a new playground demo package plus subprocess coverage showing one plugin package owning both a service and a provider.
 - **Provider factory and control-interface runtime**: Added `Plugin.provide_factory(...)`, lazy global materialization through `zush.runtime.g`, a bound plugin runtime facade for ensuring owned services are ready before provider creation, and service control-interface support with subprocess fallback. Focused runtime/service tests now cover both custom lifecycle control and provider-triggered service startup.
 - **Flask/httpx restart-health coverage**: Expanded `tests/test_services_flask.py` with a second real detached-service integration test that forces an unhealthy Flask healthcheck, verifies `self services ... --status` triggers auto-restart, and confirms the service recovers with clean state. README service docs now describe healthcheck callbacks and auto-restart behavior.

@@ -68,3 +68,26 @@ def test_plugin_helper_parent_help_includes_command_signature_summary() -> None:
     assert result.exit_code == 0
     assert "Commands:" in result.output
     assert "[OPTIONS] [SOURCE] Register a clone source for project sync." in result.output
+
+
+def test_plugin_helper_short_help_respects_limit_for_long_signatures() -> None:
+    """Long helper-built signatures should still honor Click's short-help width limit."""
+    p = Plugin()
+    p.group("clone", help="Clone tools").command(
+        "add",
+        callback=lambda *args: None,
+        help="Register a clone source for project sync.",
+        params=[
+            click.Argument(["source"]),
+            click.Argument(["destination"]),
+            click.Argument(["profile_name"]),
+            click.Argument(["environment_name"]),
+            click.Argument(["migration_target"]),
+        ],
+    )
+
+    summary = p.commands["clone.add"].get_short_help_str(45)
+
+    assert len(summary) <= 45
+    assert summary.endswith("...")
+    assert summary.startswith("[OPTIONS] SOURCE")

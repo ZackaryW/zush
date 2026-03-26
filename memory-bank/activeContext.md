@@ -2,7 +2,7 @@
 
 ## Current focus
 
-Helper-built plugin commands now expose their option and argument signature in parent help listings. The shared plugin builder uses a custom Click command subclass so group help can show summaries like `[OPTIONS] [SOURCE] ...` instead of prose-only descriptions.
+Helper-built plugin commands now expose their option and argument signature in parent help listings. The shared plugin builder uses a custom Click command subclass so group help can show summaries like `[OPTIONS] [SOURCE] ...` instead of prose-only descriptions, while still honoring Click short-help width limits for longer signatures.
 
 Provider-owned service lifecycle is now implemented. Helper plugins can declare a service, bind a lazy provider factory to that service, expose plugin-facing lifecycle commands through `ZushPlugin.runtime`, and opt into provider teardown/rebuild when the service restarts or stops. Config still supports `include_current_env`, persisted plugin config still uses the cfg index + UUID payload directories, and storage still supports `temporary_storage()` for isolated runs.
 
@@ -14,7 +14,7 @@ Recent bootstrap lesson: when `~/.zush/config.toml` is missing entirely, zush sh
 
 ## Recent changes
 
-- **Signature-aware parent help summaries**: Helper-built plugin commands now use a custom Click command subclass that prefixes parent help listings with the child command usage pieces, so nested help output includes option and argument specs instead of only the prose help string.
+- **Signature-aware parent help summaries**: Helper-built plugin commands now use a custom Click command subclass that prefixes parent help listings with the child command usage pieces, so nested help output includes option and argument specs instead of only the prose help string. Long signatures still respect Click's short-help width limit and truncate cleanly.
 - **Provider invalidation and teardown**: Lazy providers can now declare `service=...`, `recreate_on_restart=True`, and `teardown=...`. zush invalidates those providers on service lifecycle changes, runs the teardown hook for the stale instance, and rebuilds the provider lazily on next access.
 - **Provider/service playground demo**: Added `playground/zush_provider_service_demo`, a concrete example of one plugin package owning a service control interface and a lazy provider factory with plugin-facing start/stop/restart/status commands.
 - **Provider-owned service lifecycle**: Helper plugins can now register lazy provider factories with `Plugin.provide_factory(...)`. Factories are evaluated on first access through `zush.runtime.g`, can receive a bound plugin runtime object, and can call `runtime.ensure_service(...)` to start and wait on services declared by the same plugin.
