@@ -20,6 +20,23 @@ from zush.runtime import PluginRuntime
 from zush.services import ServiceDefinition
 
 
+type ProviderFactorySpec = dict[str, Any]
+
+
+class PluginCommand(click.Command):
+    """Click command that exposes usage pieces in parent help listings."""
+
+    def get_short_help_str(self, limit: int = 45) -> str:
+        help_text = super().get_short_help_str(limit)
+        ctx = click.Context(self)
+        usage = " ".join(self.collect_usage_pieces(ctx)).strip()
+        if not usage:
+            return help_text
+        if not help_text:
+            return usage
+        return f"{usage} {help_text}"
+
+
 class Section:
     """Represents a group in the tree; use .group() to nest, .command() to add commands."""
 
@@ -45,7 +62,7 @@ class Section:
     ) -> Section:
         """Add a command under this group. Returns self for chaining."""
         key = ".".join((*self._path, name))
-        self._plugin._commands[key] = click.Command(
+        self._plugin._commands[key] = PluginCommand(
             name, callback=callback, help=help or name, **kwargs
         )
         return self
@@ -68,7 +85,7 @@ class Plugin:
         self._commands: dict[str, click.Command | click.Group] = {}
         self._plugin_name: str | None = None
         self._provided_globals: dict[str, Any] = {}
-        self._provided_factories: dict[str, Callable[..., Any]] = {}
+        self._provided_factories: dict[str, ProviderFactorySpec] = {}
         self._services: dict[str, ServiceDefinition] = {}
         self._storage = None
         self._runtime: PluginRuntime | None = None
@@ -95,7 +112,7 @@ class Plugin:
         return self
 
     @property
-    def provided_factories(self) -> dict[str, dict[str, Any]]:
+    def provided_factories(self) -> dict[str, ProviderFactorySpec]:
         """Factories that zush should register lazily into the process-global store."""
         return self._provided_factories
 
