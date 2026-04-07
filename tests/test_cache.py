@@ -6,19 +6,19 @@ from pathlib import Path
 
 import pytest
 
-from zush import cache as cache_module
-from zush.cache import (
+from zush.core import cache as cache_module
+from zush.core.cache import (
     read_cache,
     write_cache,
     read_sentry,
     write_sentry,
     is_env_stale,
 )
-from zush.paths import DirectoryStorage
+from zush.core.storage import DirectoryStorage
 
 
 def test_read_cache_missing_returns_empty_dict(monkeypatch):
-    monkeypatch.setattr(cache_module.paths, "cache_file", lambda: Path("/nonexistent/cache.json"))
+    monkeypatch.setattr(cache_module.storage, "cache_file", lambda: Path("/nonexistent/cache.json"))
     assert read_cache() == {}
 
 
@@ -27,7 +27,7 @@ def test_read_cache_invalid_json_returns_empty_dict(monkeypatch):
         f.write(b"not json {")
         path = Path(f.name)
     try:
-        monkeypatch.setattr(cache_module.paths, "cache_file", lambda: path)
+        monkeypatch.setattr(cache_module.storage, "cache_file", lambda: path)
         assert read_cache() == {}
     finally:
         path.unlink(missing_ok=True)
@@ -36,21 +36,21 @@ def test_read_cache_invalid_json_returns_empty_dict(monkeypatch):
 def test_write_and_read_cache(monkeypatch):
     with tempfile.TemporaryDirectory() as d:
         cache_path = Path(d) / "cache.json"
-        monkeypatch.setattr(cache_module.paths, "cache_file", lambda: cache_path)
+        monkeypatch.setattr(cache_module.storage, "cache_file", lambda: cache_path)
         data = {"a": {"_zushtype": "path", "path": "/p", "exported": ["b"]}}
         write_cache(data)
         assert read_cache() == data
 
 
 def test_read_sentry_missing_returns_empty_list(monkeypatch):
-    monkeypatch.setattr(cache_module.paths, "sentry_file", lambda: Path("/nonexistent/sentry.json"))
+    monkeypatch.setattr(cache_module.storage, "sentry_file", lambda: Path("/nonexistent/sentry.json"))
     assert read_sentry() == []
 
 
 def test_write_and_read_sentry(monkeypatch):
     with tempfile.TemporaryDirectory() as d:
         sentry_path = Path(d) / "sentry.json"
-        monkeypatch.setattr(cache_module.paths, "sentry_file", lambda: sentry_path)
+        monkeypatch.setattr(cache_module.storage, "sentry_file", lambda: sentry_path)
         data = [{"env": "/e", "root": True, "last_cached": 123.0}]
         write_sentry(data)
         assert read_sentry() == data

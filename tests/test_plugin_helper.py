@@ -1,11 +1,11 @@
-"""Tests for zush.plugin helper (Plugin / Section)."""
+"""Tests for zush.pluginloader.plugin helper (Plugin / Section)."""
 
 import click
 import pytest
 from click.testing import CliRunner
 
-from zush.plugin import Plugin, Section
-from zush.group import ZushGroup, merge_commands_into_group
+from zush.core.group import ZushGroup, merge_commands_into_group
+from zush.pluginloader.plugin import Plugin, Section
 
 
 def test_plugin_group_and_command_build_commands_dict() -> None:

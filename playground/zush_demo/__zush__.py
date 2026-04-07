@@ -2,7 +2,7 @@
 
 import click
 
-from zush.plugin import Plugin
+from zush.pluginloader.plugin import Plugin
 
 
 def _greet_cb() -> None:

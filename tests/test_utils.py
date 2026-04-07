@@ -6,12 +6,12 @@ from pathlib import Path
 import click
 from click.testing import CliRunner
 
-from zush.config import Config
-from zush.utils.cli import parse_mock_path
+from zush.configparse.config import Config
+from zush.mocking.cli import parse_mock_path
 from zush.utils.discovery import build_envs_to_scan, cached_package_paths_for_env, merge_commands_into_tree, scan_env_for_plugins
 from zush.utils.group import command_path, merge_commands_into_group, print_command_tree
 from zush.utils.persistence import dump_toml
-from zush.utils.plugin_loader import find_plugin_instance
+from zush.pluginloader.inspection import find_plugin_instance
 
 
 def test_parse_mock_path_strips_flag_and_value() -> None:

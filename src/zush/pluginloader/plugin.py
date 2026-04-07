@@ -1,12 +1,4 @@
-"""Helper to build zush plugins with a chainable API. Use from __zush__.py:
-
-    from zush.plugin import Plugin
-
-    def greet_cb(): ...
-    p = Plugin()
-    p.group("demo", help="Demo commands").command("greet", callback=greet_cb, help="Say hello")
-    ZushPlugin = p
-"""
+"""Helper to build zush plugins with a chainable API."""
 
 from __future__ import annotations
 
@@ -14,13 +6,13 @@ from typing import Any, Callable
 
 import click
 
-from zush.persistence import persisted_ctx
-from zush.paths import default_storage
-from zush.runtime import PluginRuntime
-from zush.services import ServiceDefinition
+from zush.core.persistence import persisted_ctx
+from zush.core.runtime import PluginRuntime
+from zush.core.services import ServiceDefinition
+from zush.core.storage import default_storage
 
 
-type ProviderFactorySpec = dict[str, Any]
+ProviderFactorySpec = dict[str, Any]
 
 
 class PluginCommand(click.Command):
@@ -33,7 +25,11 @@ class PluginCommand(click.Command):
         summary = f"{usage} {help_text}".strip() if help_text else usage
         if not summary:
             return ""
-        return click.utils.make_default_short_help(summary, limit)
+        if len(summary) <= limit:
+            return summary
+        if limit <= 3:
+            return "." * max(limit, 0)
+        return summary[: limit - 3].rstrip() + "..."
 
 
 class Section:
@@ -46,7 +42,6 @@ class Section:
         self._path = path
 
     def group(self, name: str, help: str | None = None, **kwargs: Any) -> Section:
-        """Add a nested group and return a Section for it (for further .group() / .command())."""
         key = ".".join((*self._path, name))
         if key not in self._plugin._commands:
             self._plugin._commands[key] = click.Group(name, help=help or name, **kwargs)
@@ -59,10 +54,12 @@ class Section:
         help: str | None = None,
         **kwargs: Any,
     ) -> Section:
-        """Add a command under this group. Returns self for chaining."""
         key = ".".join((*self._path, name))
         self._plugin._commands[key] = PluginCommand(
-            name, callback=callback, help=help or name, **kwargs
+            name,
+            callback=callback,
+            help=help or name,
+            **kwargs,
         )
         return self
 
@@ -90,29 +87,24 @@ class Plugin:
         self._runtime: PluginRuntime | None = None
 
     def group(self, name: str, help: str | None = None, **kwargs: Any) -> Section:
-        """Add a top-level group and return a Section for it."""
         if name not in self._commands:
             self._commands[name] = click.Group(name, help=help or name, **kwargs)
         return Section(self, (name,))
 
     @property
     def commands(self) -> dict[str, click.Command | click.Group]:
-        """The commands dict (dotted keys). This is what the loader expects on the plugin instance."""
         return self._commands
 
     @property
     def provided_globals(self) -> dict[str, Any]:
-        """Objects that zush should register into the process-global store."""
         return self._provided_globals
 
     def provide(self, name: str, value: Any) -> Plugin:
-        """Register a process-global object to be exposed through zush.runtime.g."""
         self._provided_globals[name] = value
         return self
 
     @property
     def provided_factories(self) -> dict[str, ProviderFactorySpec]:
-        """Factories that zush should register lazily into the process-global store."""
         return self._provided_factories
 
     def provide_factory(
@@ -123,7 +115,6 @@ class Plugin:
         recreate_on_restart: bool = False,
         teardown: Callable[[Any], None] | None = None,
     ) -> Plugin:
-        """Register a lazy factory whose value should materialize on first access via zush.runtime.g."""
         self._provided_factories[name] = {
             "factory": factory,
             "service": service,
@@ -171,7 +162,6 @@ class Plugin:
         service_controller: Any | None = None,
         owned_services: set[str] | None = None,
     ) -> None:
-        """Bind runtime metadata needed by helper features such as persistedCtx()."""
         self._plugin_name = plugin_name
         self._storage = storage or default_storage()
         self._runtime = PluginRuntime(
@@ -182,7 +172,6 @@ class Plugin:
         )
 
     def persistedCtx(self, name: str | None = None):
-        """Yield a persisted config object or text buffer for this plugin."""
         if self._plugin_name is None:
             raise RuntimeError("Plugin runtime is not bound; persistedCtx is unavailable")
         storage = self._storage or default_storage()

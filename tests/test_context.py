@@ -4,7 +4,7 @@ import re
 
 import pytest
 
-from zush.context import ZushCtx, HookRegistry
+from zush.core.context import HookRegistry, ZushCtx
 
 
 def test_zush_ctx_dict_like():

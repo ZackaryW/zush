@@ -322,7 +322,7 @@ wheels = [
 
 [[package]]
 name = "zush"
-version = "0.2.2"
+version = "0.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
@@ -332,6 +332,7 @@ dependencies = [
 [package.optional-dependencies]
 dev = [
     { name = "flask" },
+    { name = "httpcore" },
     { name = "httpx" },
     { name = "pytest" },
 ]
@@ -340,6 +341,7 @@ dev = [
 requires-dist = [
     { name = "click", specifier = ">=8.0" },
     { name = "flask", marker = "extra == 'dev'", specifier = ">=3.0" },
+    { name = "httpcore", marker = "extra == 'dev'", specifier = ">=1.0" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pyyaml", specifier = ">=6.0" },

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Callable, TypeVar
+from typing import Callable, TypeVar, cast
 
 E = TypeVar("E", bound=BaseException)
 
@@ -21,9 +21,9 @@ class ZushCtx(dict):
 
     def __setitem__(self, key: str, value: object) -> None:
         super().__setitem__(key, value)
-        for k, expected, cb in self._on_ctx_match:
-            if k == key and value == expected:
-                cb()
+        for registered_key, expected, callback in self._on_ctx_match:
+            if registered_key == key and value == expected:
+                callback()
 
 
 class HookRegistry:
@@ -41,19 +41,21 @@ class HookRegistry:
         self._after.append((pattern, callback))
 
     def register_on_error(self, exc_type: type[E], callback: Callable[[E], None]) -> None:
-        self._on_error.append((exc_type, callback))
+        self._on_error.append(
+            (cast(type[BaseException], exc_type), cast(Callable[[BaseException], None], callback))
+        )
 
     def run_before_cmd(self, command_path: str) -> None:
-        for pattern, cb in self._before:
+        for pattern, callback in self._before:
             if pattern.search(command_path):
-                cb(command_path)
+                callback(command_path)
 
     def run_after_cmd(self, command_path: str) -> None:
-        for pattern, cb in self._after:
+        for pattern, callback in self._after:
             if pattern.search(command_path):
-                cb(command_path)
+                callback(command_path)
 
     def run_on_error(self, exc: BaseException) -> None:
-        for exc_type, cb in self._on_error:
+        for exc_type, callback in self._on_error:
             if isinstance(exc, exc_type):
-                cb(exc)
+                callback(exc)

@@ -3,12 +3,12 @@ from __future__ import annotations
 from click.testing import CliRunner
 
 from zush import create_zush_group
-from zush.config import Config
-from zush.paths import DirectoryStorage
+from zush.configparse.config import Config
+from zush.core.storage import DirectoryStorage
 
 
 def test_global_runtime_store_behaves_like_process_scoped_registry() -> None:
-    from zush.runtime import g
+    from zush.core.runtime import g
 
     g.clear()
     marker = object()
@@ -28,8 +28,8 @@ def test_create_zush_group_registers_plugin_provided_globals(tmp_path) -> None:
     (pkg / "__zush__.py").write_text(
         """
 import click
-from zush.plugin import Plugin
-from zush.runtime import g
+from zush.core.runtime import g
+from zush.pluginloader.plugin import Plugin
 
 p = Plugin()
 p.provide("shared_text", "hello")
@@ -44,7 +44,7 @@ ZushPlugin = p
         encoding="utf-8",
     )
 
-    from zush.runtime import g
+    from zush.core.runtime import g
 
     g.clear()
     storage = DirectoryStorage(tmp_path / "data")
@@ -65,8 +65,8 @@ def test_create_zush_group_registers_lazy_provider_factories(tmp_path) -> None:
     (pkg / "__zush__.py").write_text(
         """
 import click
-from zush.plugin import Plugin
-from zush.runtime import g
+from zush.core.runtime import g
+from zush.pluginloader.plugin import Plugin
 
 CALLS = 0
 
@@ -98,7 +98,7 @@ ZushPlugin = p
         encoding="utf-8",
     )
 
-    from zush.runtime import g
+    from zush.core.runtime import g
 
     g.clear()
     storage = DirectoryStorage(tmp_path / "data")
@@ -133,8 +133,8 @@ import json
 
 import click
 
-from zush.plugin import Plugin
-from zush.runtime import g
+from zush.core.runtime import g
+from zush.pluginloader.plugin import Plugin
 
 START_CALLS = 0
 
@@ -183,7 +183,7 @@ ZushPlugin = p
         encoding="utf-8",
     )
 
-    from zush.runtime import g
+    from zush.core.runtime import g
 
     g.clear()
     storage = DirectoryStorage(tmp_path / "data")
@@ -210,8 +210,8 @@ import json
 
 import click
 
-from zush.plugin import Plugin
-from zush.runtime import g
+from zush.core.runtime import g
+from zush.pluginloader.plugin import Plugin
 
 START_CALLS = 0
 TEARDOWNS = []
@@ -274,7 +274,7 @@ ZushPlugin = p
         encoding="utf-8",
     )
 
-    from zush.runtime import g
+    from zush.core.runtime import g
 
     g.clear()
     storage = DirectoryStorage(tmp_path / "data")

@@ -6,31 +6,28 @@ import io
 import json
 import uuid
 from contextlib import contextmanager
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterator
 
-import yaml
-
-from zush import paths
+from zush.core import storage as _storage
 from zush.utils.persistence import (
-    append_toml_table as _append_toml_table,
     cfg_base_dir as _cfg_base_dir,
-    dump_toml as _dump_toml,
     payload_type as _payload_type,
     read_plain as _read_plain,
     read_structured as _read_structured,
-    toml_value as _toml_value,
     write_plain as _write_plain,
     write_structured as _write_structured,
 )
 
 if TYPE_CHECKING:
-    from zush.paths import ZushStorage
+    from zush.core.storage import ZushStorage
+
+
+storage = _storage
 
 
 def read_cfg_index(storage: ZushStorage | None = None) -> dict[str, Any]:
     """Read cfg-index.json. Returns a normalized empty structure if missing or invalid."""
-    file_path = storage.cfg_index_file() if storage is not None else paths.cfg_index_file()
+    file_path = storage.cfg_index_file() if storage is not None else _storage.cfg_index_file()
     if not file_path.exists():
         return {"plugins": {}}
     try:
@@ -48,7 +45,7 @@ def read_cfg_index(storage: ZushStorage | None = None) -> dict[str, Any]:
 
 def write_cfg_index(data: dict[str, Any], storage: ZushStorage | None = None) -> None:
     """Write cfg-index.json, creating parent directories when needed."""
-    file_path = storage.cfg_index_file() if storage is not None else paths.cfg_index_file()
+    file_path = storage.cfg_index_file() if storage is not None else _storage.cfg_index_file()
     file_path.parent.mkdir(parents=True, exist_ok=True)
     with open(file_path, "w", encoding="utf-8") as handle:
         json.dump(data, handle, indent=2)

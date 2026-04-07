@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import click
 
-from zush.plugin import Plugin
-from zush.runtime import g
-from zush.services import read_service_registry
+from zush.core.runtime import g
+from zush.core.services import read_service_registry
+from zush.pluginloader.plugin import Plugin
 
 
 SERVICE_NAME = "provider-demo"

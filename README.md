@@ -113,11 +113,11 @@ Command keys may use dotted paths to build nested subcommands:
 
 ## Plugin Helper API
 
-If you do not want to manage dotted command paths by hand, use `zush.plugin.Plugin`:
+If you do not want to manage dotted command paths by hand, use `zush.pluginloader.plugin.Plugin`:
 
 ```python
 import click
-from zush.plugin import Plugin
+from zush.pluginloader.plugin import Plugin
 
 
 p = Plugin()
@@ -143,7 +143,7 @@ These are lifecycle hooks for command execution and shared context changes. They
 
 ## Runtime Globals
 
-zush also provides a process-local runtime object store at `zush.runtime.g`.
+zush also provides a process-local runtime object store at `zush.core.runtime.g`.
 
 This is useful for sharing live objects during a single zush process, for example:
 
@@ -155,7 +155,7 @@ This is useful for sharing live objects during a single zush process, for exampl
 Helper-based plugins can register objects into that store:
 
 ```python
-from zush.plugin import Plugin
+from zush.pluginloader.plugin import Plugin
 
 
 p = Plugin()
@@ -163,10 +163,10 @@ p.provide("scheduler", object())
 ZushPlugin = p
 ```
 
-If the object should be created lazily, use `provide_factory(...)` instead. The value is materialized on first access through `zush.runtime.g` and then cached for the rest of the process:
+If the object should be created lazily, use `provide_factory(...)` instead. The value is materialized on first access through `zush.core.runtime.g` and then cached for the rest of the process:
 
 ```python
-from zush.plugin import Plugin
+from zush.pluginloader.plugin import Plugin
 
 
 def build_scheduler():
@@ -183,7 +183,7 @@ Factories may also accept a plugin runtime object as their first argument. That 
 When the provider depends on a service, declare that dependency directly so zush can ensure readiness before construction and invalidate the cached provider when the service changes:
 
 ```python
-from zush.plugin import Plugin
+from zush.pluginloader.plugin import Plugin
 
 
 def build_client(runtime):
@@ -219,7 +219,7 @@ def restart_cmd():
     click.echo(ZushPlugin.runtime.restart_service("web"))
 ```
 
-Objects in `zush.runtime.g` are not persisted to disk and are only available for the current process.
+Objects in `zush.core.runtime.g` are not persisted to disk and are only available for the current process.
 
 ## Persisted Plugin State
 
@@ -227,7 +227,7 @@ Helper-based plugins can persist state with `persistedCtx()`:
 
 ```python
 import click
-from zush.plugin import Plugin
+from zush.pluginloader.plugin import Plugin
 
 
 @click.command("save")
@@ -258,7 +258,7 @@ Helper-based example:
 ```python
 import sys
 
-from zush.plugin import Plugin
+from zush.pluginloader.plugin import Plugin
 
 
 p = Plugin()
@@ -287,7 +287,7 @@ Services may also supply a custom control interface when subprocess spawning is 
 Example:
 
 ```python
-from zush.plugin import Plugin
+from zush.pluginloader.plugin import Plugin
 
 
 class Control:
@@ -330,7 +330,7 @@ Example:
 import httpx
 import sys
 
-from zush.plugin import Plugin
+from zush.pluginloader.plugin import Plugin
 
 
 def healthcheck(_state):
@@ -379,8 +379,9 @@ from pathlib import Path
 import click
 
 from zush import create_zush_group
-from zush.config import Config
-from zush.paths import DirectoryStorage, temporary_storage
+from zush.configparse.config import Config
+from zush.core.storage import DirectoryStorage
+from zush.mocking.storage import temporary_storage
 
 
 app = click.Group("myapp")

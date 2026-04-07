@@ -9,13 +9,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable
 
-from zush import paths
-from zush.runtime import g
+from zush.core import storage as _storage
+from zush.core.runtime import g
 
 if TYPE_CHECKING:
-    from zush.paths import ZushStorage
+    from zush.core.storage import ZushStorage
 
 
+storage = _storage
 Healthcheck = Callable[[dict[str, Any]], bool | tuple[bool, str]]
 
 
@@ -77,7 +78,7 @@ class ServiceControlRuntime:
 
 
 def read_service_registry(storage: ZushStorage | None = None) -> dict[str, Any]:
-    file_path = storage.services_file() if storage is not None else paths.services_file()
+    file_path = storage.services_file() if storage is not None else _storage.services_file()
     if not file_path.exists():
         return {"services": {}}
     try:
@@ -94,7 +95,7 @@ def read_service_registry(storage: ZushStorage | None = None) -> dict[str, Any]:
 
 
 def write_service_registry(data: dict[str, Any], storage: ZushStorage | None = None) -> None:
-    file_path = storage.services_file() if storage is not None else paths.services_file()
+    file_path = storage.services_file() if storage is not None else _storage.services_file()
     file_path.parent.mkdir(parents=True, exist_ok=True)
     with open(file_path, "w", encoding="utf-8") as handle:
         json.dump(data, handle, indent=2)
@@ -128,7 +129,17 @@ def sync_service_registry(
         preserved = {
             key: value
             for key, value in previous.items()
-            if key not in {"plugin", "command", "cwd", "env", "auto_restart", "pid", "desired", "last_status", "terminate_fallback"}
+            if key not in {
+                "plugin",
+                "command",
+                "cwd",
+                "env",
+                "auto_restart",
+                "pid",
+                "desired",
+                "last_status",
+                "terminate_fallback",
+            }
         }
         services[name] = {
             **preserved,
@@ -238,7 +249,7 @@ class ServiceController:
         return self._status_default(name, data, entry, definition)
 
     def ensure_service(self, name: str, timeout: float = 5.0, interval: float = 0.05) -> str:
-        data, entry = self._load_entry(name)
+        _data, entry = self._load_entry(name)
         definition = self._definition_for_name(name, entry)
         control_status = getattr(definition.control, "status", None)
         current = self.status(name)

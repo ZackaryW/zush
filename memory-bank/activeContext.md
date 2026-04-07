@@ -2,6 +2,8 @@
 
 ## Current focus
 
+The source tree has now been structurally reorganized under `src/zush/` into five major folders: `pluginloader`, `configparse`, `core`, `mocking`, and `utils`. The package root remains thin and only exposes the bootstrap surface (`create_zush_group`, `main`), while runtime/storage/discovery concerns now live under `core`, plugin author/loading concerns under `pluginloader`, config loading under `configparse`, and mock-path/temp-storage helpers under `mocking`.
+
 Helper-built plugin commands now expose their option and argument signature in parent help listings. The shared plugin builder uses a custom Click command subclass so group help can show summaries like `[OPTIONS] [SOURCE] ...` instead of prose-only descriptions, while still honoring Click short-help width limits for longer signatures.
 
 Provider-owned service lifecycle is now implemented. Helper plugins can declare a service, bind a lazy provider factory to that service, expose plugin-facing lifecycle commands through `ZushPlugin.runtime`, and opt into provider teardown/rebuild when the service restarts or stops. Config still supports `include_current_env`, persisted plugin config still uses the cfg index + UUID payload directories, and storage still supports `temporary_storage()` for isolated runs.
@@ -14,6 +16,12 @@ Recent bootstrap lesson: when `~/.zush/config.toml` is missing entirely, zush sh
 
 ## Recent changes
 
+- **Five-folder source revamp**: `src/zush/` now centers on `pluginloader/`, `configparse/`, `core/`, `mocking/`, and `utils/`. The previous flat module layout has been retired in favor of domain packages.
+- **Thin root bootstrap**: `src/zush/__init__.py` now delegates directly to `core.bootstrap` so the package root stays minimal while the implementation lives under the new structure.
+- **Runtime/storage move**: Discovery, group orchestration, context, runtime globals, services, persistence, cache, env helpers, and storage abstractions now live under `src/zush/core/`.
+- **Plugin/config move**: Plugin author APIs and plugin loading/runtime binding now live under `src/zush/pluginloader/`, and config parsing/loading now lives under `src/zush/configparse/`.
+- **Mocking package**: Mock CLI parsing and disposable temp storage now live under `src/zush/mocking/`, giving mock-path infrastructure a first-class home.
+- **Refactor validation via uv**: The reorganized tree passes the full suite with `uv run --extra dev pytest`.
 - **Signature-aware parent help summaries**: Helper-built plugin commands now use a custom Click command subclass that prefixes parent help listings with the child command usage pieces, so nested help output includes option and argument specs instead of only the prose help string. Long signatures still respect Click's short-help width limit and truncate cleanly.
 - **Provider invalidation and teardown**: Lazy providers can now declare `service=...`, `recreate_on_restart=True`, and `teardown=...`. zush invalidates those providers on service lifecycle changes, runs the teardown hook for the stale instance, and rebuilds the provider lazily on next access.
 - **Provider/service playground demo**: Added `playground/zush_provider_service_demo`, a concrete example of one plugin package owning a service control interface and a lazy provider factory with plugin-facing start/stop/restart/status commands.

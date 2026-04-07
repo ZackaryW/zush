@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import os
 import sys
-import click
 from pathlib import Path
 from typing import Any
 
-from zush.context import ZushCtx, HookRegistry
-from zush.paths import default_storage
-from zush.services import ServiceController
+import click
+
+from zush.core.context import HookRegistry, ZushCtx
+from zush.core.services import ServiceController
+from zush.core.storage import default_storage
 from zush.utils.group import (
     command_path as _command_path,
     merge_commands_into_group as _merge_commands_into_group,
@@ -48,14 +49,14 @@ class ZushGroup(click.Group):
         path_str = ".".join(command_path) if command_path else ""
         self.hook_registry.run_before_cmd(path_str)
         try:
-            result = self._invoke_with_hooks(ctx, path_str)
+            result = self._invoke_with_hooks(ctx)
             self.hook_registry.run_after_cmd(path_str)
             return result
-        except BaseException as e:
-            self.hook_registry.run_on_error(e)
+        except BaseException as exc:
+            self.hook_registry.run_on_error(exc)
             raise
 
-    def _invoke_with_hooks(self, ctx: click.Context, path_str: str) -> Any:
+    def _invoke_with_hooks(self, ctx: click.Context) -> Any:
         """Run the same logic as Group.invoke but set sub_ctx.obj so commands see ZushCtx."""
         protected = getattr(ctx, "_protected_args", []) or []
         if not protected and not ctx.args:
@@ -119,6 +120,8 @@ def _map_callback() -> None:
     """Click callback for 'zush self map'; finds root from context and prints tree."""
     ctx = click.get_current_context()
     root_group = ctx.find_root().command
+    if not isinstance(root_group, click.Group):
+        raise click.ClickException("Root command tree is unavailable")
     click.echo(root_group.name or "zush")
     _print_command_tree(root_group, "")
 
@@ -135,7 +138,7 @@ def _config_callback(storage: Any):
 def _open_config_directory(target: Path) -> None:
     if sys.platform.startswith("win") and hasattr(os, "startfile"):
         try:
-            os.startfile(str(target))
+            getattr(os, "startfile")(str(target))
             return
         except OSError as exc:
             raise click.ClickException(f"Failed to open config directory: {target}") from exc

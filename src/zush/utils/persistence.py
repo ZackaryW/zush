@@ -6,14 +6,14 @@ from typing import TYPE_CHECKING, Any
 
 import yaml
 
-from zush import paths
+from zush.core import storage as _storage
 
 if TYPE_CHECKING:
-    from zush.paths import ZushStorage
+    from zush.core.storage import ZushStorage
 
 
 def cfg_base_dir(storage: ZushStorage | None) -> Path:
-    return storage.cfg_dir() if storage is not None else paths.cfg_dir()
+    return storage.cfg_dir() if storage is not None else _storage.cfg_dir()
 
 
 def payload_type(filename: str) -> str:

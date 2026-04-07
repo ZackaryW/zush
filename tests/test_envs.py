@@ -1,10 +1,10 @@
-"""Tests for zush.envs helpers."""
+"""Tests for zush.core.envs helpers."""
 
 from pathlib import Path
 
 import pytest
 
-from zush import envs
+from zush.core import envs
 
 
 def test_current_site_package_dirs_returns_paths(monkeypatch, tmp_path):

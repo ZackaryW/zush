@@ -4,8 +4,8 @@ import click
 import pytest
 
 from zush import create_zush_group
-from zush.config import Config
-from zush.paths import DirectoryStorage
+from zush.configparse.config import Config
+from zush.core.storage import DirectoryStorage
 
 
 def test_create_zush_group_returns_click_group():

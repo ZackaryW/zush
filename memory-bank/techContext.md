@@ -16,16 +16,20 @@
 
 ## Modules (src/zush)
 
-- **paths**: config_dir, config_file, cache_file, sentry_file, cfg_index_file, cfg_dir; **storage**: ZushStorage protocol, default_storage(), temporary_storage().
-- **envs**: Helpers for resolving environment roots (e.g. `current_site_package_dirs()` for the current interpreter).
-- **config**: Config(envs, env_prefix, playground, include_current_env), load_config(storage=None).
-- **context**: ZushCtx (observable dict), HookRegistry (before_cmd, after_cmd, on_error).
-- **cache**: read/write cache and sentry with optional storage; is_env_stale().
-- **persistence**: read/write cfg-index.json and manage persisted plugin payload files under cfgs/{uuid}/.
-- **plugin_loader**: load_plugin(package_path) → (instance, commands_dict).
-- **discovery**: run_discovery(config, mock_path=None, no_cache=False, storage=None), honoring include_current_env when building envs_to_scan.
-- **group**: merge_commands_into_group (first-wins; skip `self`), ZushGroup, add_reserved_self_group (self + map).
-- **__init__**: create_zush_group(name, config, storage), main() (uses factory with defaults; parse --mock-path).
+- **configparse/config**: `Config`, `default_config()`, `ensure_config_exists()`, `load_config()`.
+- **core/storage**: config/cache/sentry/services/cfg path helpers, `ZushStorage`, `default_storage()`, `DirectoryStorage`.
+- **core/envs**: Helpers for resolving environment roots (e.g. `current_site_package_dirs()` for the current interpreter).
+- **core/context**: `ZushCtx` (observable dict), `HookRegistry` (before_cmd, after_cmd, on_error).
+- **core/cache**: read/write cache and sentry with optional storage; `is_env_stale()`.
+- **core/persistence**: read/write `cfg-index.json` and manage persisted plugin payload files under `cfgs/{uuid}/`.
+- **pluginloader/loader**: `load_plugin(package_path)` → `(instance, commands_dict)`.
+- **pluginloader/plugin**: `Plugin`, `Section`, `PluginCommand`, helper plugin author surface.
+- **pluginloader/runtime**: plugin hook registration, runtime binding, provider/global registration.
+- **core/discovery**: `run_discovery(config, mock_path=None, no_cache=False, storage=None)`, honoring `include_current_env` when building `envs_to_scan`.
+- **core/group**: `merge_commands_into_group()` (first-wins; skip `self`), `ZushGroup`, `add_reserved_self_group()`.
+- **mocking/cli**: `parse_mock_path()`.
+- **mocking/storage**: `temporary_storage()`.
+- **__init__**: re-exports `create_zush_group()` and `main()` from `core.bootstrap`.
 
 ## Dependencies
 

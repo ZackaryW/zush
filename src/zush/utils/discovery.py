@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from zush.config import Config
-from zush.plugin_loader import load_plugin
+from zush.configparse.config import Config
+from zush.pluginloader.loader import load_plugin
 
 
 def build_envs_to_scan(

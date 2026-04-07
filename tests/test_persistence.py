@@ -8,10 +8,10 @@ import json
 from click.testing import CliRunner
 
 from zush import create_zush_group
-from zush.config import Config
-from zush.paths import DirectoryStorage
-from zush.persistence import read_cfg_index, write_cfg_index
-from zush.plugin import Plugin
+from zush.configparse.config import Config
+from zush.core.persistence import read_cfg_index, write_cfg_index
+from zush.core.storage import DirectoryStorage
+from zush.pluginloader.plugin import Plugin
 
 
 def test_read_write_cfg_index_use_storage(tmp_path):
@@ -121,7 +121,7 @@ def test_create_zush_group_binds_runtime_for_plugin_helper(tmp_path):
     (pkg / "__zush__.py").write_text(
         """
 import click
-from zush.plugin import Plugin
+from zush.pluginloader.plugin import Plugin
 
 @click.command("save")
 def save_cmd():

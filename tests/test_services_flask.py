@@ -8,8 +8,8 @@ import httpx
 from click.testing import CliRunner
 
 from zush import create_zush_group
-from zush.config import Config
-from zush.paths import DirectoryStorage
+from zush.configparse.config import Config
+from zush.core.storage import DirectoryStorage
 
 
 def _reserve_port() -> int:
@@ -81,8 +81,8 @@ from pathlib import Path
 import click
 import httpx
 
-from zush.plugin import Plugin
-from zush.runtime import g
+from zush.core.runtime import g
+from zush.pluginloader.plugin import Plugin
 
 
 PORT = {port}
@@ -198,8 +198,8 @@ from pathlib import Path
 import click
 import httpx
 
-from zush.plugin import Plugin
-from zush.runtime import g
+from zush.core.runtime import g
+from zush.pluginloader.plugin import Plugin
 
 
 PORT = {port}

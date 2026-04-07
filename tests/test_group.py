@@ -9,9 +9,9 @@ import click
 import pytest
 from click.testing import CliRunner
 
-from zush.context import ZushCtx, HookRegistry
-from zush.group import ZushGroup, add_reserved_self_group, merge_commands_into_group
-from zush.paths import DirectoryStorage
+from zush.core.context import HookRegistry, ZushCtx
+from zush.core.group import ZushGroup, add_reserved_self_group, merge_commands_into_group
+from zush.core.storage import DirectoryStorage
 
 
 def _invoke(group: click.Group, args: list[str]) -> click.Context:

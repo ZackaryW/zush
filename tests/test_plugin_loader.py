@@ -1,4 +1,4 @@
-"""TDD: plugin_loader — load __zush__.py and get instance + commands dict."""
+"""TDD: pluginloader.loader — load __zush__.py and get instance + commands dict."""
 
 import tempfile
 from pathlib import Path
@@ -6,7 +6,7 @@ from pathlib import Path
 import click
 import pytest
 
-from zush.plugin_loader import load_plugin
+from zush.pluginloader.loader import load_plugin
 
 
 def test_load_plugin_missing_file_raises():

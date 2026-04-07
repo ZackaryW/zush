@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from zush import envs, paths as _paths
-from zush.cache import read_cache, write_cache, read_sentry, write_sentry, is_env_stale
-from zush.config import Config
+from zush.core import envs, storage as _storage
+from zush.core.cache import is_env_stale, read_cache, read_sentry, write_cache, write_sentry
+from zush.configparse.config import Config
 from zush.utils.discovery import (
     build_envs_to_scan as _build_envs_to_scan,
     cached_package_paths_for_env as _cached_package_paths_for_env,
@@ -18,10 +18,10 @@ from zush.utils.discovery import (
 )
 
 if TYPE_CHECKING:
-    from zush.paths import ZushStorage
+    from zush.core.storage import ZushStorage
 
 
-paths = _paths
+storage = _storage
 
 
 def run_discovery(
@@ -30,12 +30,7 @@ def run_discovery(
     no_cache: bool = False,
     storage: ZushStorage | None = None,
 ) -> tuple[list[tuple[Path, object, dict[str, Any]]], dict[str, Any]]:
-    """Scan config.envs for packages matching env_prefix with __zush__.py;
-    load plugins, merge command trees, update cache and sentry (unless no_cache).
-    If mock_path is set, only that path is scanned (overload env). If no_cache is True,
-    sentry/cache are not read or written. When storage is provided, read/write use it.
-    Returns ([(package_path, instance, commands_dict), ...], merged_tree).
-    """
+    """Scan config envs for plugins and return loaded plugins plus merged tree."""
     all_plugins: list[tuple[Path, object, dict[str, Any]]] = []
     merged_tree: dict[str, Any] = {}
     cached_tree = {} if no_cache else read_cache(storage=storage)

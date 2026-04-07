@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from typing import Protocol
 
 
@@ -85,15 +83,8 @@ def default_storage() -> _DefaultStorage:
     return _DefaultStorage()
 
 
-@contextmanager
-def temporary_storage(prefix: str = "zush-"):
-    """Yield a DirectoryStorage backed by a temporary directory and clean it up on exit."""
-    with TemporaryDirectory(prefix=prefix) as temp_dir:
-        yield DirectoryStorage(Path(temp_dir))
-
-
 class DirectoryStorage:
-    """Storage that uses a given directory for all paths (config.toml, cache.json, sentry.json)."""
+    """Storage that uses a given directory for all zush-managed files."""
 
     def __init__(self, base: Path) -> None:
         self._base = Path(base)

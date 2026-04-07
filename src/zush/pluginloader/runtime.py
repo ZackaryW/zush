@@ -4,11 +4,11 @@ import inspect
 import re
 from typing import TYPE_CHECKING, Any
 
-from zush.context import HookRegistry, ZushCtx
-from zush.runtime import g
+from zush.core.context import HookRegistry, ZushCtx
+from zush.core.runtime import g
 
 if TYPE_CHECKING:
-    from zush.paths import ZushStorage
+    from zush.core.storage import ZushStorage
 
 
 def register_plugin_hooks(
@@ -50,15 +50,17 @@ def bind_plugin_runtime_with_services(
 ) -> None:
     owned_services: dict[str, set[str]] = {}
     for path, instance, _commands in plugins:
+        plugin_name = str(path.name)
         services = getattr(instance, "services", None)
         if isinstance(services, dict):
-            owned_services[path.name] = set(services.keys())
+            owned_services[plugin_name] = {str(name) for name in services.keys()}
         else:
-            owned_services[path.name] = set()
+            owned_services[plugin_name] = set()
     for path, instance, _commands in plugins:
         bind = getattr(instance, "_bind_runtime", None)
         if callable(bind):
-            bind(path.name, storage, service_controller, owned_services.get(path.name, set()))
+            plugin_name = str(path.name)
+            bind(plugin_name, storage, service_controller, owned_services.get(plugin_name, set()))
 
 
 def register_plugin_globals(plugins: list[tuple[Any, Any, Any]]) -> None:
@@ -75,14 +77,11 @@ def register_plugin_globals(plugins: list[tuple[Any, Any, Any]]) -> None:
                 factory = spec.get("factory")
                 if callable(factory):
                     runtime = getattr(instance, "runtime", None)
+                    service = spec.get("service") if isinstance(spec.get("service"), str) else None
                     g.register_provider(
                         key,
-                        _bind_factory(
-                            factory,
-                            runtime,
-                            service=spec.get("service") if isinstance(spec.get("service"), str) else None,
-                        ),
-                        service=spec.get("service") if isinstance(spec.get("service"), str) else None,
+                        _bind_factory(factory, runtime, service=service),
+                        service=service,
                         recreate_on_restart=bool(spec.get("recreate_on_restart", False)),
                         teardown=spec.get("teardown") if callable(spec.get("teardown")) else None,
                     )

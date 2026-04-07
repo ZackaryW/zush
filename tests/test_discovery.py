@@ -6,15 +6,15 @@ from pathlib import Path
 import click
 import pytest
 
-from zush.config import Config
-from zush.discovery import run_discovery
-from zush.cache import read_cache, read_sentry
-from zush.paths import DirectoryStorage
+from zush.configparse.config import Config
+from zush.core.cache import read_cache, read_sentry
+from zush.core.discovery import run_discovery
+from zush.core.storage import DirectoryStorage
 
 
 def test_run_discovery_empty_envs_returns_empty_plugin_list(monkeypatch):
     with tempfile.TemporaryDirectory() as d:
-        monkeypatch.setattr("zush.discovery.paths.config_dir", lambda: Path(d))
+        monkeypatch.setattr("zush.core.discovery.storage.config_dir", lambda: Path(d))
         cfg = Config(envs=[], env_prefix=["zush_"])
         plugins, _ = run_discovery(cfg)
     assert plugins == []
@@ -30,9 +30,9 @@ import click
 plugin = type("P", (), {"commands": {"hello": click.Command("hello")}})()
 """)
         config_dir = Path(tempfile.mkdtemp())
-        monkeypatch.setattr("zush.discovery.paths.config_dir", lambda: config_dir)
-        monkeypatch.setattr("zush.discovery.paths.cache_file", lambda: config_dir / "cache.json")
-        monkeypatch.setattr("zush.discovery.paths.sentry_file", lambda: config_dir / "sentry.json")
+        monkeypatch.setattr("zush.core.discovery.storage.config_dir", lambda: config_dir)
+        monkeypatch.setattr("zush.core.discovery.storage.cache_file", lambda: config_dir / "cache.json")
+        monkeypatch.setattr("zush.core.discovery.storage.sentry_file", lambda: config_dir / "sentry.json")
         cfg = Config(envs=[env_path], env_prefix=["zush_"])
         plugins, tree = run_discovery(cfg)
     assert len(plugins) == 1
@@ -67,9 +67,9 @@ import click
 plugin = type("P", (), {"commands": {"hello": click.Command("hello", callback=lambda: None)}})()
 """)
         config_dir = Path(tempfile.mkdtemp())
-        monkeypatch.setattr("zush.discovery.paths.config_dir", lambda: config_dir)
-        monkeypatch.setattr("zush.discovery.paths.cache_file", lambda: config_dir / "cache.json")
-        monkeypatch.setattr("zush.discovery.paths.sentry_file", lambda: config_dir / "sentry.json")
+        monkeypatch.setattr("zush.core.discovery.storage.config_dir", lambda: config_dir)
+        monkeypatch.setattr("zush.core.discovery.storage.cache_file", lambda: config_dir / "cache.json")
+        monkeypatch.setattr("zush.core.discovery.storage.sentry_file", lambda: config_dir / "sentry.json")
         cfg = Config(envs=[], env_prefix=["zush_"], playground=env_path)
         plugins, _ = run_discovery(cfg)
     assert len(plugins) == 1
@@ -109,7 +109,7 @@ import click
 plugin = type("P", (), {"commands": {"hello": click.Command("hello")}})()
 """
     )
-    monkeypatch.setattr("zush.envs.current_site_package_dirs", lambda: [env_root])
+    monkeypatch.setattr("zush.core.envs.current_site_package_dirs", lambda: [env_root])
     cfg = Config(envs=[], env_prefix=["zush_"], playground=None, include_current_env=True)
     plugins, _ = run_discovery(cfg)
     assert any(p[0] == pkg for p in plugins)

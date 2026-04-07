@@ -2,6 +2,12 @@
 
 ## What works
 
+- **Five-folder package structure**: `src/zush/` now consists of the root package files plus the major folders `pluginloader/`, `configparse/`, `core/`, `mocking/`, and `utils/`.
+- **Thin package root**: `zush.__init__` now delegates to `core.bootstrap`, keeping package-root entrypoints minimal.
+- **Config package split**: Config parsing/loading now lives under `zush.configparse`.
+- **Plugin package split**: Plugin author APIs, plugin inspection, plugin loading, and runtime binding now live under `zush.pluginloader`.
+- **Core package split**: Runtime, discovery, services, cache, persistence, storage, group, and context logic now live under `zush.core`.
+- **Mocking package split**: `--mock-path` parsing and temporary storage helpers now live under `zush.mocking`.
 - **Plugin parent help summaries**: Helper-built plugin commands now show their Click usage pieces in parent help listings, so nested command help includes option and argument signatures alongside the short prose description while still respecting Click's short-help width limit for longer signatures.
 - **Config**: load_config() from ~/.zush/config.toml (envs, env_prefix, optional playground, include_current_env flag).
 - **Config bootstrap**: when ~/.zush/config.toml is missing, zush creates a default config file and enables current-env scanning by default.
@@ -19,10 +25,12 @@
 - **Temporary storage helper**: `temporary_storage()` yields a tempdir-backed `DirectoryStorage` and cleans it up automatically.
 - **Runtime providers and services**: Plugins can declare static globals with `provide(...)`, lazy providers with `provide_factory(...)`, provider teardown/rebuild rules, detached services, custom service control interfaces, and provider-facing runtime lifecycle calls through `ZushPlugin.runtime`.
 - **Playground provider/service demo**: `playground/zush_provider_service_demo` shows one plugin package owning both a provider and a service control interface, with subprocess coverage through `uv run zush --mock-path ...`.
-- **Tests**: full pytest suite passes with 105 tests.
+- **Tests**: full pytest suite passes with 105 tests via `uv run --extra dev pytest`.
 
 ## What was just completed
 
+- **Structural revamp complete**: Reorganized the source tree into `core`, `pluginloader`, `configparse`, `mocking`, and `utils`; updated tests and playground fixtures to the new imports; and kept the package-root CLI entrypoint stable.
+- **uv verification**: Confirmed the refactor with `uv run --extra dev pytest`; full suite passes with 105 tests.
 - **Parent help signature fix**: Added regression coverage proving parent help for helper-built commands includes usage pieces like `[OPTIONS] [SOURCE]`, then refined the custom command subclass so longer signatures still honor Click's short-help width limit and truncate cleanly. Full suite now passes with 105 tests.
 - **Provider rebuild/teardown and playground demo**: Added service-aware provider invalidation with teardown hooks, so `provide_factory(..., service=..., recreate_on_restart=True, teardown=...)` can rebuild control surfaces after service stop/restart. Added a new playground demo package plus subprocess coverage showing one plugin package owning both a service and a provider.
 - **Provider factory and control-interface runtime**: Added `Plugin.provide_factory(...)`, lazy global materialization through `zush.runtime.g`, a bound plugin runtime facade for ensuring owned services are ready before provider creation, and service control-interface support with subprocess fallback. Focused runtime/service tests now cover both custom lifecycle control and provider-triggered service startup.

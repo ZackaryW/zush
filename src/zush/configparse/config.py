@@ -7,17 +7,18 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from zush import paths
+from zush.core import storage as _storage
 
 if TYPE_CHECKING:
-    from zush.paths import ZushStorage
+    from zush.core.storage import ZushStorage
+
+
+storage = _storage
 
 
 @dataclass
 class Config:
-    """Zush config: envs to scan, optional playground (overloaded index env),
-    package name prefix, and optional inclusion of current env's site-packages.
-    """
+    """Zush config: envs to scan, optional playground, package prefixes, and current-env scanning."""
 
     envs: list[Path]
     env_prefix: list[str]
@@ -31,12 +32,12 @@ def default_config() -> Config:
 
 def ensure_config_exists(storage: ZushStorage | None = None) -> Path:
     """Create a bootstrap config.toml when one does not already exist."""
-    p = storage.config_file() if storage is not None else paths.config_file()
-    if p.exists():
-        return p
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(_default_config_toml(), encoding="utf-8")
-    return p
+    file_path = storage.config_file() if storage is not None else _storage.config_file()
+    if file_path.exists():
+        return file_path
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_text(_default_config_toml(), encoding="utf-8")
+    return file_path
 
 
 def _default_config_toml() -> str:
@@ -48,26 +49,23 @@ def _default_config_toml() -> str:
 
 
 def load_config(storage: ZushStorage | None = None) -> Config:
-    """Load config from config.toml. Uses storage.config_file() when provided, else default paths. Returns defaults if missing or invalid."""
+    """Load config from config.toml. Returns defaults if missing or invalid."""
     default = default_config()
-    p = ensure_config_exists(storage=storage)
+    file_path = ensure_config_exists(storage=storage)
     try:
-        with open(p, "rb") as f:
-            data = tomllib.load(f)
+        with open(file_path, "rb") as handle:
+            data = tomllib.load(handle)
     except (tomllib.TOMLDecodeError, OSError):
         return default
     envs_raw = data.get("envs")
-    if envs_raw is None:
-        envs = []
-    else:
-        envs = [Path(e) for e in envs_raw if isinstance(e, str)]
+    envs = [] if envs_raw is None else [Path(entry) for entry in envs_raw if isinstance(entry, str)]
     env_prefix = data.get("env_prefix")
     if env_prefix is None:
         env_prefix = ["zush_"]
     elif not isinstance(env_prefix, list):
         env_prefix = ["zush_"]
     else:
-        env_prefix = [str(x) for x in env_prefix if isinstance(x, str)]
+        env_prefix = [str(value) for value in env_prefix if isinstance(value, str)]
     if not env_prefix:
         env_prefix = ["zush_"]
     playground_raw = data.get("playground")

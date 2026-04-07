@@ -3,7 +3,7 @@
 import pytest
 from pathlib import Path
 
-from zush.paths import (
+from zush.core.storage import (
     config_dir,
     config_file,
     cache_file,
@@ -13,8 +13,8 @@ from zush.paths import (
     cfg_dir,
     default_storage,
     DirectoryStorage,
-    temporary_storage,
 )
+from zush.mocking.storage import temporary_storage
 
 
 def test_config_dir_returns_path_under_home():

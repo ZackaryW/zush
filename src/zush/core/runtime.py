@@ -86,7 +86,7 @@ class GlobalStore(dict[str, Any]):
 
     def __getitem__(self, key: str) -> Any:
         value = super().__getitem__(key)
-        return self._resolve(key, value)
+        return self._resolve(value)
 
     def get(self, key: str, default: Any = None) -> Any:
         if key not in self:
@@ -127,7 +127,7 @@ class GlobalStore(dict[str, Any]):
                 continue
             value.invalidate()
 
-    def _resolve(self, key: str, value: Any) -> Any:
+    def _resolve(self, value: Any) -> Any:
         if not isinstance(value, ProviderBinding):
             return value
         return value.get_value()

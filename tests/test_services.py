@@ -3,8 +3,8 @@ from __future__ import annotations
 from click.testing import CliRunner
 
 from zush import create_zush_group
-from zush.config import Config
-from zush.paths import DirectoryStorage
+from zush.configparse.config import Config
+from zush.core.storage import DirectoryStorage
 
 
 def _write_service_plugin(env_root, body: str) -> None:
@@ -20,7 +20,7 @@ def test_create_zush_group_registers_plugin_services(tmp_path) -> None:
         env_root,
         """
 import sys
-from zush.plugin import Plugin
+from zush.pluginloader.plugin import Plugin
 
 p = Plugin()
 p.service("sleeper", [sys.executable, "-c", "import time; time.sleep(60)"])
@@ -31,7 +31,7 @@ ZushPlugin = p
     storage = DirectoryStorage(tmp_path / "data")
     create_zush_group(config=Config(envs=[env_root], env_prefix=["zush_"]), storage=storage)
 
-    from zush.services import read_service_registry
+    from zush.core.services import read_service_registry
 
     registry = read_service_registry(storage)
     assert "sleeper" in registry["services"]
@@ -45,7 +45,7 @@ def test_self_services_can_start_status_and_stop_service(tmp_path) -> None:
         env_root,
         """
 import sys
-from zush.plugin import Plugin
+from zush.pluginloader.plugin import Plugin
 
 p = Plugin()
 p.service("sleeper", [sys.executable, "-c", "import time; time.sleep(60)"])
@@ -77,7 +77,7 @@ def test_self_services_auto_restart_unhealthy_service(tmp_path) -> None:
         env_root,
         """
 import sys
-from zush.plugin import Plugin
+from zush.pluginloader.plugin import Plugin
 
 def unhealthy(_state):
     return False, "unhealthy"
@@ -113,7 +113,7 @@ def test_self_services_can_use_custom_control_interface(tmp_path) -> None:
     _write_service_plugin(
         env_root,
         f'''
-from zush.plugin import Plugin
+from zush.pluginloader.plugin import Plugin
 
 
 class Control:
@@ -167,7 +167,7 @@ ZushPlugin = p
     assert stopped.exit_code == 0, (stopped.output, repr(stopped.exception))
     assert "stopped managed" in stopped.output.lower()
 
-    from zush.services import read_service_registry
+    from zush.core.services import read_service_registry
 
     registry = read_service_registry(storage)
     assert registry["services"]["managed"]["calls"] == ["start", "status", "restart", "stop"]

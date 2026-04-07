@@ -5,16 +5,16 @@ from pathlib import Path
 
 import pytest
 
-from zush import config as config_module
-from zush.config import load_config, Config
-from zush.paths import DirectoryStorage
+from zush.configparse import config as config_module
+from zush.configparse.config import Config, load_config
+from zush.core.storage import DirectoryStorage
 
 
 def test_load_config_missing_file_returns_defaults(monkeypatch):
     """When config.toml is missing, return default env_prefix and empty envs."""
     with tempfile.TemporaryDirectory() as d:
         config_path = Path(d) / "config.toml"
-        monkeypatch.setattr(config_module.paths, "config_file", lambda: config_path)
+        monkeypatch.setattr(config_module.storage, "config_file", lambda: config_path)
         cfg = load_config()
     assert cfg.env_prefix == ["zush_"]
     assert cfg.envs == []
@@ -41,7 +41,7 @@ def test_load_config_invalid_toml_returns_defaults(monkeypatch):
         f.write(b"not valid toml [[[")
         path = Path(f.name)
     try:
-        monkeypatch.setattr(config_module.paths, "config_file", lambda: path)
+        monkeypatch.setattr(config_module.storage, "config_file", lambda: path)
         cfg = load_config()
         assert cfg.env_prefix == ["zush_"]
         assert cfg.envs == []
@@ -57,7 +57,7 @@ def test_load_config_parses_envs_and_prefix(monkeypatch):
         f.write(b'envs = ["/foo", "/bar"]\nenv_prefix = ["zush_", "my_"]')
         path = Path(f.name)
     try:
-        monkeypatch.setattr(config_module.paths, "config_file", lambda: path)
+        monkeypatch.setattr(config_module.storage, "config_file", lambda: path)
         cfg = load_config()
         assert cfg.env_prefix == ["zush_", "my_"]
         assert len(cfg.envs) == 2
@@ -72,7 +72,7 @@ def test_load_config_default_prefix_when_omitted(monkeypatch):
         f.write(b'envs = []')
         path = Path(f.name)
     try:
-        monkeypatch.setattr(config_module.paths, "config_file", lambda: path)
+        monkeypatch.setattr(config_module.storage, "config_file", lambda: path)
         cfg = load_config()
         assert cfg.env_prefix == ["zush_"]
     finally:
@@ -92,7 +92,7 @@ def test_load_config_include_current_env_optional(monkeypatch):
         f.write(b'envs = []\ninclude_current_env = true')
         path = Path(f.name)
     try:
-        monkeypatch.setattr(config_module.paths, "config_file", lambda: path)
+        monkeypatch.setattr(config_module.storage, "config_file", lambda: path)
         cfg = load_config()
         assert cfg.include_current_env is True
     finally:
@@ -105,7 +105,7 @@ def test_load_config_playground_optional(monkeypatch):
         f.write(b'envs = []\nplayground = "/play"')
         path = Path(f.name)
     try:
-        monkeypatch.setattr(config_module.paths, "config_file", lambda: path)
+        monkeypatch.setattr(config_module.storage, "config_file", lambda: path)
         cfg = load_config()
         assert cfg.playground is not None
         assert "play" in str(cfg.playground)
