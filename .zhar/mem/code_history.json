@@ -1,0 +1,21 @@
+{
+  "20c15": {
+    "id": "20c15",
+    "group": "code_history",
+    "node_type": "file_change",
+    "summary": "Publish workflow pins setup-uv to a resolvable v8.0.0 commit",
+    "status": "active",
+    "tags": [],
+    "source": null,
+    "content": null,
+    "created_at": "2026-04-16T05:31:14Z",
+    "updated_at": "2026-04-16T05:31:14Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot",
+      "path": ".github/workflows/publish.yml",
+      "significance": "patch"
+    },
+    "custom": {}
+  }
+}
