@@ -1,0 +1,85 @@
+{
+  "00d19": {
+    "id": "00d19",
+    "group": "project_dna",
+    "node_type": "core_goal",
+    "summary": "Single entry CLI for discovered plugin command trees",
+    "status": "active",
+    "tags": [
+      "repo-bootstrap",
+      "inspection"
+    ],
+    "source": null,
+    "content": null,
+    "created_at": "2026-04-16T04:04:47Z",
+    "updated_at": "2026-04-16T04:04:47Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot"
+    },
+    "custom": {}
+  },
+  "01194": {
+    "id": "01194",
+    "group": "project_dna",
+    "node_type": "core_requirement",
+    "summary": "Preserve dynamic plugin discovery invariants",
+    "status": "active",
+    "tags": [
+      "repo-bootstrap",
+      "inspection"
+    ],
+    "source": null,
+    "content": "Zush must keep dynamic plugin discovery as a first-class invariant.\n\nKey expectations:\n- Plugins are discovered from configured filesystem environments and optional current site-packages.\n- Packages are selected by prefix and must expose __zush__.py at the package root.\n- The live CLI tree is reconstructed from plugin command dictionaries, not hard-coded in the application.\n- The reserved self group remains owned by zush and is not overridable by plugins.",
+    "created_at": "2026-04-16T04:04:47Z",
+    "updated_at": "2026-04-16T04:04:47Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot",
+      "priority": "high"
+    },
+    "custom": {}
+  },
+  "0250c": {
+    "id": "0250c",
+    "group": "project_dna",
+    "node_type": "core_requirement",
+    "summary": "Keep storage injectable for embedding and tests",
+    "status": "active",
+    "tags": [
+      "repo-bootstrap",
+      "inspection"
+    ],
+    "source": null,
+    "content": "Zush should remain easy to embed and test without mutating the user's real ~/.zush state.\n\nKey expectations:\n- Storage paths are abstracted behind the ZushStorage protocol and DirectoryStorage.\n- Mock-path runs avoid cache writes and support local playground-style testing.\n- Core bootstrap and discovery flows accept injectable storage so tests and host apps can isolate runtime files.",
+    "created_at": "2026-04-16T04:04:48Z",
+    "updated_at": "2026-04-16T04:04:48Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot",
+      "priority": "high"
+    },
+    "custom": {}
+  },
+  "03a29": {
+    "id": "03a29",
+    "group": "project_dna",
+    "node_type": "product_context",
+    "summary": "Serve plugin authors and CLI integrators",
+    "status": "active",
+    "tags": [
+      "repo-bootstrap",
+      "inspection"
+    ],
+    "source": null,
+    "content": "Primary users are Python CLI authors, integrators, and local tool builders who want one entry point that can discover commands from multiple plugin packages.\n\nUser-facing goals:\n- Add or remove plugin packages without modifying zush core.\n- Inspect the effective command tree through built-in self commands.\n- Support local development through playground and mock-path workflows.\n- Keep behavior predictable when plugins register hooks, services, and shared runtime providers.",
+    "created_at": "2026-04-16T04:04:48Z",
+    "updated_at": "2026-04-16T04:04:48Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot",
+      "audience": "python-cli-authors"
+    },
+    "custom": {}
+  }
+}

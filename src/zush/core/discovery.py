@@ -8,16 +8,19 @@ from typing import TYPE_CHECKING, Any
 from zush.core import envs, storage as _storage
 from zush.core.cache import is_env_stale, read_cache, read_sentry, write_cache, write_sentry
 from zush.configparse.config import Config
+from zush.discovery_provider import DiscoveryDiagnostic, FlatFolderDiscoveryProvider
 from zush.utils.discovery import (
     build_envs_to_scan as _build_envs_to_scan,
     cached_package_paths_for_env as _cached_package_paths_for_env,
     find_sentry_entry as _find_sentry_entry,
     load_cached_plugins as _load_cached_plugins,
     merge_commands_into_tree as _merge_commands_into_tree,
+    normalize_providers as _normalize_providers,
     scan_env_for_plugins as _scan_env_for_plugins,
 )
 
 if TYPE_CHECKING:
+    from zush.discovery_provider import DiscoveryProvider
     from zush.core.storage import ZushStorage
 
 
@@ -29,6 +32,8 @@ def run_discovery(
     mock_path: Path | None = None,
     no_cache: bool = False,
     storage: ZushStorage | None = None,
+    provider: DiscoveryProvider | list[DiscoveryProvider] | tuple[DiscoveryProvider, ...] | None = None,
+    diagnostics: list[DiscoveryDiagnostic] | None = None,
 ) -> tuple[list[tuple[Path, object, dict[str, Any]]], dict[str, Any]]:
     """Scan config envs for plugins and return loaded plugins plus merged tree."""
     all_plugins: list[tuple[Path, object, dict[str, Any]]] = []
@@ -36,6 +41,11 @@ def run_discovery(
     cached_tree = {} if no_cache else read_cache(storage=storage)
     sentry = [] if no_cache else read_sentry(storage=storage)
     cache_entries: list[dict[str, Any]] = []
+    disabled_extensions = set(config.disabled_extensions or [])
+    if provider is None:
+        active_provider = _normalize_providers([FlatFolderDiscoveryProvider()])
+    else:
+        active_provider = _normalize_providers(provider)
     envs_to_scan = _build_envs_to_scan(
         config,
         mock_path=mock_path,
@@ -57,6 +67,8 @@ def run_discovery(
                         all_plugins,
                         merged_tree,
                         _merge_commands_into_tree,
+                        disabled_extensions=disabled_extensions,
+                        diagnostics=diagnostics,
                     )
                 continue
         _scan_env_for_plugins(
@@ -66,6 +78,9 @@ def run_discovery(
             merged_tree,
             cache_entries,
             _merge_commands_into_tree,
+            disabled_extensions=disabled_extensions,
+            provider=active_provider,
+            diagnostics=diagnostics,
         )
 
     if not no_cache and cache_entries:

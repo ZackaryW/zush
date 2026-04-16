@@ -1,0 +1,82 @@
+{
+  "04619": {
+    "id": "04619",
+    "group": "architecture_context",
+    "node_type": "architecture",
+    "summary": "Bootstrap-discovery-loader-group-runtime composition",
+    "status": "active",
+    "tags": [
+      "repo-bootstrap",
+      "inspection"
+    ],
+    "source": null,
+    "content": "Zush is organized as a small orchestration layer over separable discovery, plugin-loading, command-merging, runtime, and service components.\n\nObserved runtime flow:\n- core.bootstrap parses mock-path, loads config, runs discovery, clears runtime globals, binds services, registers hooks, then builds the root ZushGroup.\n- core.discovery coordinates env selection, cache/sentry reads, stale checks, live scanning, cached package recovery, and merged tree construction.\n- pluginloader.loader executes plugin __zush__.py files and extracts an instance exposing a commands dictionary.\n- core.group and utils.group convert dotted command keys into nested Click groups, inject invocation context, and dispatch before/after/error hooks.\n- core.runtime and core.services manage process-local providers plus detached service lifecycle control.",
+    "created_at": "2026-04-16T04:04:48Z",
+    "updated_at": "2026-04-16T04:04:48Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot"
+    },
+    "custom": {}
+  },
+  "0534a": {
+    "id": "0534a",
+    "group": "architecture_context",
+    "node_type": "design_pattern",
+    "summary": "Custom Click group composes plugin behavior",
+    "status": "active",
+    "tags": [
+      "repo-bootstrap",
+      "inspection"
+    ],
+    "source": null,
+    "content": "The dominant design pattern is plugin composition around a custom Click group.\n\nImportant traits:\n- First-wins command merge keeps registration deterministic across multiple plugin sources.\n- Hook registration is inferred from plugin instance attributes instead of requiring explicit plugin interfaces.\n- ZushCtx acts as an observable invocation-scoped state container for onCtxMatch behavior.\n- Runtime globals and detached services are separate concerns: globals are process-local objects, while services are persisted and lifecycle-managed.",
+    "created_at": "2026-04-16T04:04:49Z",
+    "updated_at": "2026-04-16T04:04:49Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot"
+    },
+    "custom": {}
+  },
+  "06c50": {
+    "id": "06c50",
+    "group": "architecture_context",
+    "node_type": "tech_setup",
+    "summary": "Python 3.12 uv Click pytest playground workflow",
+    "status": "active",
+    "tags": [
+      "repo-bootstrap",
+      "inspection"
+    ],
+    "source": null,
+    "content": "Current technical setup observed during inspection:\n- Python 3.12 project with a src layout.\n- Packaging and task execution are centered on uv and pyproject.toml.\n- Runtime dependencies are Click and PyYAML.\n- Dev/test dependencies include pytest, Flask, httpx, and httpcore.\n- Playground packages under playground/ exercise deep trees, hooks, and provider-plus-service flows.\n- Baseline validation on 2026-04-15: uv run pytest passed with 105 tests on Windows.",
+    "created_at": "2026-04-16T04:04:49Z",
+    "updated_at": "2026-04-16T04:04:49Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot"
+    },
+    "custom": {}
+  },
+  "153eb": {
+    "id": "153eb",
+    "group": "architecture_context",
+    "node_type": "architecture",
+    "summary": "Five-folder source layout keeps zush concerns separated",
+    "status": "active",
+    "tags": [
+      "memory-bank-migration",
+      "architecture"
+    ],
+    "source": null,
+    "content": "Legacy memory-bank architecture context absorbed on 2026-04-15.\n\nCurrent durable structure:\n- src/zush is organized around core, pluginloader, configparse, mocking, and utils.\n- The package root remains thin and re-exports the bootstrap surface only.\n- core owns discovery, group orchestration, runtime, services, persistence, cache, env helpers, and storage abstractions.\n- pluginloader owns plugin author APIs, inspection, package loading, and runtime binding after discovery chooses a concrete package path.\n- configparse owns config parsing and persistence helpers.\n- mocking owns mock-path parsing and temporary storage helpers used by tests and local playground-style runs.\n- utils holds delegated helper implementations so run_discovery can stay focused on orchestration rather than low-level scanning details.\n\nOperational implication:\n- Refactors should preserve these concern boundaries unless there is a clear cross-cutting reason to collapse them.",
+    "created_at": "2026-04-16T04:47:34Z",
+    "updated_at": "2026-04-16T04:47:34Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot"
+    },
+    "custom": {}
+  }
+}

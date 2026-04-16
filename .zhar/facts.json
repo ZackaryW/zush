@@ -1,0 +1,6 @@
+{
+  "project_name": "zush",
+  "primary_language": "python",
+  "test_command": "uv run pytest",
+  "last_inspection": "2026-04-15: 105 passing tests, no workspace Problems"
+}

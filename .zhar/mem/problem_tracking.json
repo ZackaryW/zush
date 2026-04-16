@@ -1,0 +1,86 @@
+{
+  "08d0a": {
+    "id": "08d0a",
+    "group": "problem_tracking",
+    "node_type": "known_issue",
+    "summary": "Discovery silently skips broken plugins",
+    "status": "archived",
+    "tags": [
+      "inspection"
+    ],
+    "source": null,
+    "content": "Discovery currently swallows plugin load failures in both live env scanning and cached package recovery.\n\nEvidence:\n- src/zush/utils/discovery.py catches Exception around load_plugin(...) and continues.\n\nWhy this matters:\n- Broken plugins disappear from the effective CLI tree with no user-facing clue.\n- Import errors, malformed exports, and syntax errors are difficult to diagnose.\n\nSuggested direction:\n- Collect plugin load failures during discovery and expose them through logging, a verbose mode, or a self diagnostic command.\n- Preserve the non-fatal behavior, but make the skip observable.",
+    "created_at": "2026-04-16T04:04:49Z",
+    "updated_at": "2026-04-16T04:59:26Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot",
+      "severity": "high",
+      "issue_type": "design"
+    },
+    "custom": {}
+  },
+  "09fd7": {
+    "id": "09fd7",
+    "group": "problem_tracking",
+    "node_type": "known_issue",
+    "summary": "Command path conflicts are not surfaced",
+    "status": "archived",
+    "tags": [
+      "inspection"
+    ],
+    "source": null,
+    "content": "Command merge conflicts are currently silent.\n\nEvidence:\n- src/zush/utils/group.py uses a first-wins merge and simply skips later registrations for an existing command path.\n\nWhy this matters:\n- Plugin authors cannot tell when a command path is shadowed by an earlier plugin.\n- Users can get incomplete command surfaces without any warning.\n\nSuggested direction:\n- Track duplicate dotted command paths during merge.\n- Expose conflicts through diagnostics or an opt-in strict mode that fails fast.",
+    "created_at": "2026-04-16T04:04:50Z",
+    "updated_at": "2026-04-16T04:59:26Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot",
+      "severity": "med",
+      "issue_type": "design"
+    },
+    "custom": {}
+  },
+  "0a624": {
+    "id": "0a624",
+    "group": "problem_tracking",
+    "node_type": "known_issue",
+    "summary": "Service registry can preserve stale process state",
+    "status": "archived",
+    "tags": [
+      "inspection"
+    ],
+    "source": null,
+    "content": "Persisted detached-service state can drift from actual process state.\n\nEvidence:\n- core.services syncs service definitions into services.json but preserves stored pid and desired state.\n- Status checks handle missing processes later, but the registry is not proactively normalized when the controller is initialized.\n\nWhy this matters:\n- Stored service state may imply that a service is running even after process death or external termination.\n- Operability improves if the persisted registry is reconciled at startup.\n\nSuggested direction:\n- Validate persisted pids during controller initialization and normalize stale entries to a stopped or missing state.",
+    "created_at": "2026-04-16T04:04:50Z",
+    "updated_at": "2026-04-16T05:01:59Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot",
+      "severity": "med",
+      "issue_type": "debt"
+    },
+    "custom": {}
+  },
+  "0bb77": {
+    "id": "0bb77",
+    "group": "problem_tracking",
+    "node_type": "known_issue",
+    "summary": "Environment lookup catches overly broad exceptions",
+    "status": "archived",
+    "tags": [
+      "inspection"
+    ],
+    "source": null,
+    "content": "Environment discovery uses broad exception handling around site and sysconfig lookups.\n\nEvidence:\n- src/zush/core/envs.py catches Exception around site.getsitepackages(), sysconfig.get_paths(), and site.getusersitepackages().\n\nWhy this matters:\n- Unexpected runtime failures are masked, which makes unusual platform issues harder to debug.\n- The function only needs to degrade gracefully for expected environment lookup failures.\n\nSuggested direction:\n- Narrow the caught exception types to the specific lookup failures zush wants to tolerate.\n- Consider optional debug logging when a lookup path is skipped.",
+    "created_at": "2026-04-16T04:04:50Z",
+    "updated_at": "2026-04-16T05:01:59Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot",
+      "severity": "low",
+      "issue_type": "debt"
+    },
+    "custom": {}
+  }
+}

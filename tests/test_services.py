@@ -4,6 +4,7 @@ from click.testing import CliRunner
 
 from zush import create_zush_group
 from zush.configparse.config import Config
+from zush.core.services import ServiceController, ServiceDefinition, read_service_registry, write_service_registry
 from zush.core.storage import DirectoryStorage
 
 
@@ -171,3 +172,113 @@ ZushPlugin = p
 
     registry = read_service_registry(storage)
     assert registry["services"]["managed"]["calls"] == ["start", "status", "restart", "stop"]
+
+
+def test_service_controller_init_clears_stale_running_pid_to_missing(tmp_path, monkeypatch) -> None:
+    """Controller initialization should clear stale desired service pids and mark them missing."""
+    storage = DirectoryStorage(tmp_path / "data")
+    write_service_registry(
+        {
+            "services": {
+                "sleeper": {
+                    "plugin": "zush_services",
+                    "command": ["python", "-c", "pass"],
+                    "cwd": None,
+                    "env": {},
+                    "auto_restart": False,
+                    "pid": 43210,
+                    "desired": True,
+                    "last_status": "running",
+                    "terminate_fallback": True,
+                }
+            }
+        },
+        storage,
+    )
+    monkeypatch.setattr(ServiceController, "_is_running", lambda self, pid: False)
+
+    ServiceController(
+        storage,
+        {
+            "sleeper": ("zush_services", ServiceDefinition(command=["python", "-c", "pass"]))
+        },
+    )
+
+    registry = read_service_registry(storage)
+
+    assert registry["services"]["sleeper"]["pid"] is None
+    assert registry["services"]["sleeper"]["desired"] is True
+    assert registry["services"]["sleeper"]["last_status"] == "missing"
+
+
+def test_service_controller_init_clears_stale_stopped_pid_to_stopped(tmp_path, monkeypatch) -> None:
+    """Controller initialization should clear stale non-desired service pids and mark them stopped."""
+    storage = DirectoryStorage(tmp_path / "data")
+    write_service_registry(
+        {
+            "services": {
+                "sleeper": {
+                    "plugin": "zush_services",
+                    "command": ["python", "-c", "pass"],
+                    "cwd": None,
+                    "env": {},
+                    "auto_restart": False,
+                    "pid": 43210,
+                    "desired": False,
+                    "last_status": "running",
+                    "terminate_fallback": True,
+                }
+            }
+        },
+        storage,
+    )
+    monkeypatch.setattr(ServiceController, "_is_running", lambda self, pid: False)
+
+    ServiceController(
+        storage,
+        {
+            "sleeper": ("zush_services", ServiceDefinition(command=["python", "-c", "pass"]))
+        },
+    )
+
+    registry = read_service_registry(storage)
+
+    assert registry["services"]["sleeper"]["pid"] is None
+    assert registry["services"]["sleeper"]["desired"] is False
+    assert registry["services"]["sleeper"]["last_status"] == "stopped"
+
+
+def test_service_controller_init_preserves_live_pid(tmp_path, monkeypatch) -> None:
+    """Controller initialization should preserve live service pids that still exist."""
+    storage = DirectoryStorage(tmp_path / "data")
+    write_service_registry(
+        {
+            "services": {
+                "sleeper": {
+                    "plugin": "zush_services",
+                    "command": ["python", "-c", "pass"],
+                    "cwd": None,
+                    "env": {},
+                    "auto_restart": False,
+                    "pid": 43210,
+                    "desired": True,
+                    "last_status": "running",
+                    "terminate_fallback": True,
+                }
+            }
+        },
+        storage,
+    )
+    monkeypatch.setattr(ServiceController, "_is_running", lambda self, pid: True)
+
+    ServiceController(
+        storage,
+        {
+            "sleeper": ("zush_services", ServiceDefinition(command=["python", "-c", "pass"]))
+        },
+    )
+
+    registry = read_service_registry(storage)
+
+    assert registry["services"]["sleeper"]["pid"] == 43210
+    assert registry["services"]["sleeper"]["last_status"] == "running"

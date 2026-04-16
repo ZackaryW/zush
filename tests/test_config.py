@@ -122,3 +122,16 @@ def test_load_config_uses_storage_when_provided(tmp_path):
     assert len(cfg.envs) == 1
     assert "custom" in str(cfg.envs[0])
     assert cfg.env_prefix == ["custom_"]
+
+
+def test_load_config_disabled_extensions_optional(monkeypatch):
+    """disabled_extensions is optional and loads as a list of extension keys."""
+    with tempfile.NamedTemporaryFile(suffix=".toml", delete=False) as f:
+        f.write(b'envs = []\ndisabled_extensions = ["zush_demo", "zush_extra"]')
+        path = Path(f.name)
+    try:
+        monkeypatch.setattr(config_module.storage, "config_file", lambda: path)
+        cfg = load_config()
+        assert cfg.disabled_extensions == ["zush_demo", "zush_extra"]
+    finally:
+        path.unlink(missing_ok=True)

@@ -12,6 +12,22 @@ It is useful when you want one entry point that can load commands from multiple 
 - Supports lightweight plugin hooks and shared runtime context.
 - Can be used as a standalone CLI or mounted inside another Click app.
 
+## Current Capabilities
+
+zush currently provides:
+
+- local extension discovery from configured env roots and optional current site-packages
+- ordered discovery-provider selection for local source layouts
+- plugin loading from package-local `__zush__.py`
+- extension enable or disable control through `disabled_extensions` and `zush self toggle`
+- boot-time diagnostics through `zush self diagnostics`
+- controlled `self` command registration for plugins and host apps
+- detached service management and runtime provider integration
+
+zush does not currently act as a package manager. Remote registry lookup, GitHub-based installation, update policy, and install metadata are better implemented in a separate extension-management package.
+
+See [docs/extension-management.md](docs/extension-management.md) for the recommended architecture.
+
 ## Requirements
 
 - Python 3.12+
@@ -40,6 +56,12 @@ Open the active zush config directory:
 
 ```bash
 zush self config
+```
+
+Show collected discovery and command-registration diagnostics:
+
+```bash
+zush self diagnostics
 ```
 
 Run a discovered plugin command:
@@ -71,6 +93,7 @@ Supported keys:
 | `env_prefix` | Allowed package name prefixes. Default: `["zush_"]`. |
 | `playground` | Optional directory scanned first for local development overrides. |
 | `include_current_env` | When `true`, also scan the current Python environment's site-packages. |
+| `disabled_extensions` | Optional list of extension keys to skip during discovery. |
 
 Example:
 
@@ -79,6 +102,7 @@ envs = ["/path/to/plugins", "/another/path"]
 env_prefix = ["zush_", "my_"]
 playground = "/path/to/zush/playground"
 include_current_env = true
+disabled_extensions = ["zush_demo"]
 ```
 
 zush stores config, cache, and other runtime files under `~/.zush/` by default.
@@ -129,6 +153,24 @@ p.group("hello", help="Greeting commands").command(
 
 ZushPlugin = p
 ```
+
+Helper-based plugins can also register controlled commands directly under `self`:
+
+```python
+import click
+from zush.pluginloader.plugin import Plugin
+
+
+def doctor() -> None:
+    click.echo("plugin diagnostics")
+
+
+p = Plugin()
+p.system_command("doctor", callback=doctor, help="Plugin diagnostics")
+ZushPlugin = p
+```
+
+These commands are mounted under `zush self ...` without treating ordinary `self.*` dotted command keys as part of the normal plugin command tree.
 
 ## Plugin Hooks
 
@@ -365,9 +407,14 @@ The `self` group is reserved for zush itself.
 
 - `zush self map` prints the active command tree.
 - `zush self config` opens the active zush config directory.
+- `zush self diagnostics` prints collected discovery and command-registration diagnostics for the current boot.
+- `zush self toggle` shows which extensions are loaded this boot and which are disabled for the next boot.
+- `zush self toggle <extension>` enables or disables one extension key for future boots.
 - `zush self services ...` manages plugin-declared detached services.
 
-Plugins cannot register commands under `self`.
+Plugins cannot publish ordinary command paths under `self.*`.
+
+Plugins may register controlled self commands through `Plugin.system_command(...)`, and host apps may register their own self commands when calling `create_zush_group(...)`. Built-in zush command names still take priority, so plugin or host registrations cannot override `map`, `config`, `diagnostics`, `toggle`, or `services`.
 
 ## Embedding
 
@@ -392,6 +439,17 @@ storage = DirectoryStorage(Path("/myapp/data/zush"))
 config = Config(envs=[Path("/my/envs")], env_prefix=["zush_"])
 app.add_command(create_zush_group(config=config, storage=storage), "zush")
 
+app.add_command(
+    create_zush_group(
+        config=config,
+        storage=storage,
+        system_commands={
+            "doctor": click.Command("doctor", callback=lambda: click.echo("host diagnostics")),
+        },
+    ),
+    "zush",
+)
+
 with temporary_storage() as temp_storage:
     app.add_command(create_zush_group(config=config, storage=temp_storage), "temp-zush")
 ```
@@ -399,7 +457,7 @@ with temporary_storage() as temp_storage:
 Factory signature:
 
 ```python
-create_zush_group(name="zush", config=None, storage=None, mock_path=None)
+create_zush_group(name="zush", config=None, storage=None, mock_path=None, system_commands=None)
 ```
 
 ## Playground

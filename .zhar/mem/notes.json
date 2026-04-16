@@ -1,0 +1,38 @@
+{
+  "0e41a": {
+    "id": "0e41a",
+    "group": "notes",
+    "node_type": "note",
+    "summary": "Refactor constraint update from 2026-04-15.",
+    "status": "active",
+    "tags": [],
+    "source": null,
+    "content": "Refactor constraint update from 2026-04-15.\n\nThe reset is architectural, not behavioral by default.\n\nPreserve where possible:\n- The current config surface and serialized shape that tests already depend on, especially envs, env_prefix, playground, and include_current_env.\n- The effective extension registry shape and externally visible behaviors that current tests assert.\n- Existing tests should be retained or adapted minimally when they still describe intended public behavior.\n\nAllow full change:\n- Non-public internal seams such as discovery internals, provider/backend abstractions, registration plumbing, and other non-directly exposed interfaces may be fully redesigned.\n\nExecution rule:\n- Follow TDD for each refactor slice: add or adjust tests first for the intended external behavior, then change implementation behind those tests.",
+    "created_at": "2026-04-16T04:18:46Z",
+    "updated_at": "2026-04-16T04:18:46Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "copilot",
+      "target_ids": "0d685"
+    },
+    "custom": {}
+  },
+  "10899": {
+    "id": "10899",
+    "group": "notes",
+    "node_type": "note",
+    "summary": "Follow-up self toggle behavior shipped on 2026-04-15.",
+    "status": "active",
+    "tags": [],
+    "source": null,
+    "content": "Follow-up self toggle behavior shipped on 2026-04-15.\n\nDelivered behavior:\n- `zush self toggle` no longer errors when invoked without an extension name.\n- The command now prints a lightweight inspection view with two sections: `Loaded this boot:` and `Disabled next boot:`.\n- This makes the persisted toggle state visible without mutating config and directly covers the earlier CLI usability gap.\n\nValidation:\n- Focused self-group tests passed.\n- Full repository suite passed with 111 tests.\n- Manual smoke test `uv run zush self toggle` returned a zero-exit inspection report.",
+    "created_at": "2026-04-16T04:24:46Z",
+    "updated_at": "2026-04-16T04:24:46Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "copilot",
+      "target_ids": "0f210"
+    },
+    "custom": {}
+  }
+}

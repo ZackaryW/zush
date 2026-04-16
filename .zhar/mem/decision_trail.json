@@ -1,0 +1,373 @@
+{
+  "07099": {
+    "id": "07099",
+    "group": "decision_trail",
+    "node_type": "research_finding",
+    "summary": "Inspection found strong architecture with diagnostic gaps",
+    "status": "archived",
+    "tags": [
+      "repo-bootstrap",
+      "inspection"
+    ],
+    "source": null,
+    "content": "Inspection baseline on 2026-04-15:\n- Editor problems: none reported in the workspace.\n- Test baseline: uv run pytest passed with 105 passing tests after syncing the dev extra.\n- Architecture quality is strong: storage abstraction, clear orchestration boundaries, and integration-heavy tests are already in place.\n\nMain improvement theme:\nThe next gains are mostly operational and diagnostic rather than foundational redesign. The codebase would benefit most from surfacing hidden failure states and validating persisted/runtime state more explicitly.\n\nPriority improvement areas:\n1. Discovery should report plugin load failures instead of silently skipping them.\n2. Command-tree conflicts should be surfaced so plugin shadowing is observable.\n3. Service registry state should be reconciled against actual running processes on load.\n4. Broad exception handling in environment discovery should be narrowed to expected failures.",
+    "created_at": "2026-04-16T04:04:49Z",
+    "updated_at": "2026-04-16T04:55:26Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot",
+      "outcome": "adopted",
+      "source_ref": "repo-inspection-2026-04-15"
+    },
+    "custom": {}
+  },
+  "0cd79": {
+    "id": "0cd79",
+    "group": "decision_trail",
+    "node_type": "research_finding",
+    "summary": "Refactor assessment prioritizes extension activation before provider split",
+    "status": "archived",
+    "tags": [
+      "assessment",
+      "refactor"
+    ],
+    "source": null,
+    "content": "Refactor assessment for the planned next phase.\n\nOverall call:\n- The safest highest-value first move is to introduce extension activation state in config and use discovery to honor it.\n- Extracting discovery providers is feasible and aligns with the current code shape, but it is mostly an internal architecture cleanup unless paired with extension toggling and diagnostics.\n- Tightening self-group injection needs a clearer ownership contract before implementation because there is currently no registerSystemCommands API and plugins are already blocked from registering under self.\n\nFeasibility by proposal:\n1. Controlled config that can turn optional services/extensions on and off: feasible and recommended as the first milestone. Current Config is small, only used at bootstrap/discovery time, and can be extended without destabilizing unrelated subsystems if the first step is additive.\n2. Built-in self toggle command for enabling/disabling registered extensions: feasible, but it depends on introducing a stable extension identity and persisted enabled/disabled state in config. This should ship together with or immediately after the config expansion.\n3. Discovery-provider surface under zush/discovery_provider: feasible and a good refactor target. The current flat-folder discovery flow is already isolated enough to become a default provider implementation. The main caution is naming because zush already uses provider terminology for runtime object factories.\n4. Self-group tightening plus registerSystemCommands gate: feasible only after defining whether this API is host-only, plugin-available, or both. As stated it is underspecified and would be a breaking behavior change if existing integration assumptions depend on current bootstrap-owned command registration.\n\nRecommended priority order:\n1. Define extension identity and config schema for enabled/disabled plugins and optional service policy.\n2. Implement config-backed extension filtering in discovery, then add self toggle as the control surface.\n3. Add discovery diagnostics while touching discovery anyway, especially plugin load failures and conflict reporting.\n4. Extract the discovery-provider interface, with the current folder scan becoming the first provider implementation.\n5. Revisit self-group injection only after the extension model and discovery-provider contracts are stable.\n\nImportant caution:\nThe word provider is already overloaded in zush. Runtime providers exist today through Plugin.provide(...) and Plugin.provide_factory(...). Reusing provider for discovery backends is possible, but a name like discovery_backend or discovery_source would reduce confusion in code, docs, and user discussions.",
+    "created_at": "2026-04-16T04:11:29Z",
+    "updated_at": "2026-04-16T04:55:26Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot",
+      "outcome": "adopted",
+      "source_ref": "refactor-assessment-2026-04-15"
+    },
+    "custom": {}
+  },
+  "0d685": {
+    "id": "0d685",
+    "group": "decision_trail",
+    "node_type": "research_finding",
+    "summary": "Refactor scope decisions favor self toggle and direct self registration",
+    "status": "active",
+    "tags": [
+      "assessment",
+      "refactor"
+    ],
+    "source": null,
+    "content": "User-scoped refactor decisions captured on 2026-04-15.\n\nConfirmed direction:\n- First implementation slice is config plus self toggle.\n- Compatibility posture is hard reset / redesign rather than incremental preservation.\n- Discovery abstraction should be named discovery_provider even though runtime providers already exist; this is an intentional naming choice.\n- Extension toggle identity should be based on a resolved package/module name. The latest preference is to use import/module name as the extension key.\n- Toggling an extension off disables command loading, hook registration, runtime providers/globals, and detached service registration.\n- Optional services should be controlled at the extension level rather than as an independent per-service toggle model.\n- The reserved self group should keep map, config, and services.\n- Plugins as well as host apps may register system-level commands, and those commands should live directly under self.\n\nImportant design consequence:\nThe current rule that plugins cannot register under self will need to be replaced by a stricter ownership model, likely separating core-owned self commands from registered plugin-owned self commands while still keeping collisions and safety under central control.",
+    "created_at": "2026-04-16T04:17:03Z",
+    "updated_at": "2026-04-16T04:17:03Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot",
+      "outcome": "adopted",
+      "source_ref": "user-scope-answers-2026-04-15"
+    },
+    "custom": {}
+  },
+  "0f210": {
+    "id": "0f210",
+    "group": "decision_trail",
+    "node_type": "research_finding",
+    "summary": "First slice ships additive disabled_extensions and self toggle",
+    "status": "active",
+    "tags": [
+      "refactor",
+      "implementation"
+    ],
+    "source": null,
+    "content": "First refactor slice implemented on 2026-04-15.\n\nDelivered behavior:\n- Config now supports an additive disabled_extensions list without changing the existing envs, env_prefix, playground, or include_current_env contract.\n- Discovery filters disabled extensions before plugin load, so disabled entries do not contribute commands, hooks, runtime providers, or detached services.\n- The reserved self group now includes self toggle <extension>, which persists extension activation state for future boots.\n- The slice was implemented under TDD by adding focused config, discovery, and self-group tests first.\n\nCompatibility outcome:\n- Existing public config shape was preserved and the broader test suite remained green.\n- The implementation keeps current extension identity aligned with the discovered package directory name for the flat-folder flow.\n\nValidation:\n- Focused suite for config/discovery/group passed.\n- Full test suite passed with 109 tests.",
+    "created_at": "2026-04-16T04:22:42Z",
+    "updated_at": "2026-04-16T04:22:42Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot",
+      "outcome": "adopted",
+      "source_ref": "toggle-slice-2026-04-15"
+    },
+    "custom": {}
+  },
+  "11ef9": {
+    "id": "11ef9",
+    "group": "decision_trail",
+    "node_type": "research_finding",
+    "summary": "Boundary map separates discovery providers from pluginloader",
+    "status": "active",
+    "tags": [
+      "refactor",
+      "architecture"
+    ],
+    "source": null,
+    "content": "Discovery/provider boundary mapped on 2026-04-15.\n\nTarget separation:\n\n1. discovery_provider layer\n- Owns candidate discovery only.\n- Knows how to inspect one source type (current first implementation: flat folder env roots).\n- Inputs: env root, config-driven prefix rules, disabled extension keys, optional provider-specific options.\n- Outputs: discovery candidates and provider-level diagnostics.\n- Does not import plugin runtime helpers, bind hooks, register globals, or mutate the CLI.\n- Does not decide cache/sentry policy for the whole application.\n\n2. discovery orchestration layer\n- Owns env ordering, config-driven source selection, cache/sentry coordination, stale-env handling, and merged-tree assembly.\n- Calls the configured discovery provider(s) to enumerate candidates for an env.\n- Delegates actual plugin loading for each candidate to pluginloader.loader.\n- Filters or records diagnostics at the orchestration level when needed for whole-run reporting.\n- Returns the same external result shape expected today: loaded plugins plus merged command tree.\n\n3. pluginloader layer\n- Owns loading a single discovered package path into a Python module and extracting the plugin instance.\n- Owns plugin author helper APIs, hook registration, runtime binding, and provider/global wiring after load.\n- Inputs: concrete candidate package path already chosen by discovery.\n- Outputs: plugin instance plus commands dict, then runtime side effects only after bootstrap decides to bind them.\n- Does not scan env roots or choose which directories count as candidates.\n\nPractical contract for the next slice:\n- A discovery provider should yield package candidates, not loaded plugins.\n- The current flat-folder package scan in utils.discovery becomes the first provider implementation.\n- core.discovery remains the orchestration entry point and still returns loaded plugins and merged tree.\n- pluginloader.loader remains the only place that imports __zush__.py from a discovered package path.\n- disabled_extensions filtering belongs at or before candidate emission, not inside pluginloader.\n\nNon-goals for the provider slice:\n- No change to public config keys.\n- No change to extension identity shape.\n- No change to the self command surface.\n- No change to plugin author helper APIs.",
+    "created_at": "2026-04-16T04:27:53Z",
+    "updated_at": "2026-04-16T04:27:53Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot",
+      "outcome": "adopted",
+      "source_ref": "boundary-map-2026-04-15"
+    },
+    "custom": {}
+  },
+  "12227": {
+    "id": "12227",
+    "group": "decision_trail",
+    "node_type": "research_finding",
+    "summary": "Discovery provider seam ships with flat-folder default provider",
+    "status": "active",
+    "tags": [
+      "refactor",
+      "implementation"
+    ],
+    "source": null,
+    "content": "Discovery provider seam implemented on 2026-04-15.\n\nDelivered behavior:\n- Added a new zush.discovery_provider package with DiscoveryCandidate, DiscoveryProvider, and the default FlatFolderDiscoveryProvider.\n- The flat-folder scan is now a concrete provider implementation instead of being only an inline utility behavior.\n- core.discovery remains the orchestration entry point and still returns loaded plugins plus merged tree.\n- pluginloader.loader remains the only place that imports __zush__.py from discovered package paths.\n- utils.discovery.scan_env_for_plugins now consumes a provider while preserving its existing public behavior for tests.\n- run_discovery now accepts an optional injected provider, enabling seam-level testing without changing default behavior.\n\nCompatibility outcome:\n- Public config keys and self command behavior remained unchanged.\n- The flat-folder provider is the default path, so existing discovery behavior stayed stable.\n- Validation passed with 113 tests.",
+    "created_at": "2026-04-16T04:34:28Z",
+    "updated_at": "2026-04-16T04:34:28Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot",
+      "outcome": "adopted",
+      "source_ref": "provider-slice-2026-04-15"
+    },
+    "custom": {}
+  },
+  "135e5": {
+    "id": "135e5",
+    "group": "decision_trail",
+    "node_type": "research_finding",
+    "summary": "Discovery diagnostics and direct-package provider ship behind stable defaults",
+    "status": "active",
+    "tags": [
+      "refactor",
+      "implementation"
+    ],
+    "source": null,
+    "content": "Follow-up discovery slice implemented on 2026-04-15.\n\nDelivered behavior:\n- Added DiscoveryDiagnostic and DiscoveryReport to the discovery_provider contract.\n- run_discovery now accepts an optional diagnostics sink while preserving its existing return shape of loaded plugins plus merged tree.\n- Discovery orchestration now records provider-level diagnostics and plugin load failures without making them fatal.\n- Added DirectPackageDiscoveryProvider as a second provider implementation, proving the seam supports more than the default flat-folder strategy.\n- utils.discovery normalizes provider output so orchestration can work with providers that expose the richer discover/report API.\n\nValidation:\n- Focused discovery and utility suites passed.\n- Full repository suite passed with 116 tests.\n\nCompatibility outcome:\n- Default user-facing behavior did not change.\n- Public config keys and self command surface remained unchanged.",
+    "created_at": "2026-04-16T04:37:09Z",
+    "updated_at": "2026-04-16T04:37:09Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot",
+      "outcome": "adopted",
+      "source_ref": "diagnostics-slice-2026-04-15"
+    },
+    "custom": {}
+  },
+  "144e2": {
+    "id": "144e2",
+    "group": "decision_trail",
+    "node_type": "research_finding",
+    "summary": "Discovery providers now use ordered identify-first selection per path",
+    "status": "active",
+    "tags": [
+      "refactor",
+      "implementation"
+    ],
+    "source": null,
+    "content": "Provider selection semantics updated on 2026-04-15.\n\nDelivered behavior:\n- Discovery providers can now be supplied as an ordered list.\n- For each env path, providers are evaluated in order and the first provider whose identify(env_path, env_prefixes) returns true wins that path.\n- Only the winning provider runs discover(...); non-matching providers do not execute full discovery for that path.\n- If no provider matches an env path, orchestration records a non-fatal no-provider-matched diagnostic.\n- Flat-folder and direct-package providers now both implement the identify-before-discover contract.\n\nValidation:\n- Focused discovery tests covering ordered first-win selection and identify gating passed.\n- Full repository suite passed with 118 tests.",
+    "created_at": "2026-04-16T04:40:05Z",
+    "updated_at": "2026-04-16T04:40:05Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot",
+      "outcome": "adopted",
+      "source_ref": "provider-order-2026-04-15"
+    },
+    "custom": {}
+  },
+  "16e31": {
+    "id": "16e31",
+    "group": "decision_trail",
+    "node_type": "lesson_learned",
+    "summary": "Discovery identity follows installed package layout and env_prefix rules",
+    "status": "active",
+    "tags": [
+      "memory-bank-migration",
+      "discovery"
+    ],
+    "source": null,
+    "content": "Migration lesson carried over from the legacy memory-bank.\n\nKey rule:\n- Discovery identity is anchored to the installed package directory zush actually scans, not an abstract project name.\n- __zush__.py must live in the installed package directory that matches the active env_prefix selection rules.\n- Splitting a migrated package into a sibling plugin package without matching packaging and config changes is a predictable failure mode.\n\nDiagnostic implication:\n- When commands disappear after a migration, verify package name, env path, env_prefix, and __zush__.py placement before treating cache or invalidation as broken.",
+    "created_at": "2026-04-16T04:47:35Z",
+    "updated_at": "2026-04-16T04:47:35Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot",
+      "trigger_event": "memory-bank-migration"
+    },
+    "custom": {}
+  },
+  "17d86": {
+    "id": "17d86",
+    "group": "decision_trail",
+    "node_type": "lesson_learned",
+    "summary": "Sentry skips rescans but must still rehydrate cached package paths",
+    "status": "active",
+    "tags": [
+      "memory-bank-migration",
+      "discovery"
+    ],
+    "source": null,
+    "content": "Cached-env lesson carried over from the legacy memory-bank.\n\nKey rule:\n- Sentry is a performance optimization, not an alternate source of truth for the live CLI tree.\n- When an env is unchanged, discovery must still rehydrate cached package paths into the live command tree.\n- Skipping an unchanged env without rehydration can degrade top-level help to self-only even though plugin commands still exist in that env.\n\nDiagnostic implication:\n- Any discovery refactor that touches stale-env handling must preserve cached package rehydration semantics.",
+    "created_at": "2026-04-16T04:47:35Z",
+    "updated_at": "2026-04-16T04:47:35Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot",
+      "trigger_event": "memory-bank-migration"
+    },
+    "custom": {}
+  },
+  "189cb": {
+    "id": "189cb",
+    "group": "decision_trail",
+    "node_type": "lesson_learned",
+    "summary": "Missing config should bootstrap first-run discovery defaults",
+    "status": "active",
+    "tags": [
+      "memory-bank-migration",
+      "config"
+    ],
+    "source": null,
+    "content": "First-run bootstrap lesson carried over from the legacy memory-bank.\n\nKey rule:\n- A missing ~/.zush/config.toml should trigger bootstrap config creation rather than a silent run with no scanned envs.\n- The bootstrap config should preserve current-env scanning so installed plugins are visible on first run.\n\nProduct implication:\n- First-run discovery regressions should be treated as user-facing product issues, not only parser or storage issues.",
+    "created_at": "2026-04-16T04:47:35Z",
+    "updated_at": "2026-04-16T04:47:35Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot",
+      "trigger_event": "memory-bank-migration"
+    },
+    "custom": {}
+  },
+  "19b1d": {
+    "id": "19b1d",
+    "group": "decision_trail",
+    "node_type": "research_finding",
+    "summary": "Legacy memory-bank context has been semantically absorbed into zhar",
+    "status": "active",
+    "tags": [
+      "memory-bank-migration",
+      "repo-memory"
+    ],
+    "source": null,
+    "content": "Legacy memory-bank documents were reviewed and absorbed into zhar on 2026-04-15.\n\nRouting outcome:\n- Project goals, discovery and storage invariants, and the core runtime architecture were already represented in existing project_dna and architecture_context nodes.\n- Unique durable deltas from activeContext and progress were migrated as one architecture record and three lesson_learned records.\n- Stale point-in-time status items such as older passing-test counts and completed-step checklists were intentionally not copied because they age quickly and are not durable memory.\n\nSource-of-truth update:\n- zhar is now the durable project memory system for this repository.\n- The memory-bank folder remains legacy reference material until the repository chooses to remove it explicitly.",
+    "created_at": "2026-04-16T04:47:35Z",
+    "updated_at": "2026-04-16T04:47:35Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot",
+      "outcome": "adopted",
+      "source_ref": "memory-bank-dissolution-2026-04-15"
+    },
+    "custom": {}
+  },
+  "1a924": {
+    "id": "1a924",
+    "group": "decision_trail",
+    "node_type": "research_finding",
+    "summary": "Refactor status review leaves self ownership, diagnostics surfacing, and conflict reporting open",
+    "status": "archived",
+    "tags": [
+      "refactor",
+      "assessment"
+    ],
+    "source": null,
+    "content": "Refactor gap assessment recorded on 2026-04-15.\n\nCompleted slices:\n- Config-backed disabled_extensions exists and self toggle persists extension activation state.\n- Discovery now filters disabled extensions before plugin load.\n- discovery_provider exists with flat-folder and direct-package providers.\n- Discovery diagnostics exist in plumbing and providers now use ordered identify-first selection per env path.\n\nRemaining gaps against the planned refactor:\n1. Self-group ownership and registration model is still unresolved in implementation.\n   - core.group.add_reserved_self_group still hardcodes the self command set.\n   - utils.group.merge_commands_into_group still drops every plugin command rooted at self.\n   - There is still no registerSystemCommands-style API for host apps or plugins to contribute controlled self commands.\n\n2. Diagnostics are collected internally but not surfaced through a user-facing control plane.\n   - run_discovery accepts an optional diagnostics sink, but bootstrap does not retain or expose it.\n   - There is no self diagnostics command, verbose discovery output, or other built-in way for users to inspect provider or loader diagnostics.\n\n3. Command conflict visibility is still missing.\n   - Group merge remains first-wins and silent.\n   - The earlier inspection issue about shadowed command paths is still open in behavior, even though discovery diagnostics now exist.\n\n4. Provider extensibility is internal-only.\n   - run_discovery can accept injected provider lists, but create_zush_group/bootstrap does not expose provider policy selection, registration, or configuration.\n   - The seam proves the architecture, but the runtime product surface for alternative discovery strategies is not finished.\n\n5. Extension identity is still only implicitly defined by package-path naming.\n   - utils.discovery.resolve_extension_key returns package_path.name.\n   - That matches the current flat-folder/direct-package flows, but there is not yet a broader explicit identity contract decoupled from directory naming for future provider types.\n\n6. The broader operational improvements identified during inspection are still mostly open.\n   - Discovery load failures are now capturable, but still not user-visible by default.\n   - Command conflict reporting remains absent.\n   - Service-registry reconciliation on controller initialization has not been implemented.\n   - Broad exception handling in core.envs has not yet been narrowed.\n\nRecommended next order from current state:\n1. Implement controlled self/system command registration and stop treating every self-prefixed plugin command as an unconditional drop.\n2. Surface discovery and merge diagnostics through a builtin self diagnostics command.\n3. Add command-conflict tracking during merge and route that into the diagnostics surface.\n4. Decide whether provider selection should remain injection-only or become a supported bootstrap/configuration feature.",
+    "created_at": "2026-04-16T04:53:07Z",
+    "updated_at": "2026-04-16T04:59:25Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot",
+      "outcome": "adopted",
+      "source_ref": "refactor-gap-review-2026-04-15"
+    },
+    "custom": {}
+  },
+  "1b6a1": {
+    "id": "1b6a1",
+    "group": "decision_trail",
+    "node_type": "research_finding",
+    "summary": "Controlled self registration and self diagnostics now ship behind builtin self ownership",
+    "status": "active",
+    "tags": [
+      "refactor",
+      "implementation"
+    ],
+    "source": null,
+    "content": "Controlled self-command registration and diagnostics surfacing shipped on 2026-04-15.\n\nDelivered behavior:\n- Host apps can register controlled commands directly under the reserved self group when building zush.\n- Helper-based plugins can register controlled self commands through Plugin.system_command(...).\n- Built-in self commands remain zush-owned and keep priority over host or plugin registrations.\n- Discovery and command-registration diagnostics are now exposed through zush self diagnostics.\n- First-wins command conflicts are no longer silent; they are recorded as command-conflict diagnostics for the current boot.\n\nCompatibility outcome:\n- Ordinary plugin command keys rooted at self.* are still excluded from the normal command-tree merge.\n- Existing built-in self commands keep their names and behavior.\n- The full repository suite passed with 124 tests after the slice.\n\nRemaining notable gap:\n- Self ownership now has a controlled registration path, but there is still no separately named registerSystemCommands API surface.",
+    "created_at": "2026-04-16T04:59:25Z",
+    "updated_at": "2026-04-16T04:59:25Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot",
+      "outcome": "adopted",
+      "source_ref": "self-diagnostics-slice-2026-04-15"
+    },
+    "custom": {}
+  },
+  "1c0fa": {
+    "id": "1c0fa",
+    "group": "decision_trail",
+    "node_type": "research_finding",
+    "summary": "Service registry startup reconciliation and narrowed env lookup failures now ship",
+    "status": "active",
+    "tags": [
+      "refactor",
+      "implementation"
+    ],
+    "source": null,
+    "content": "Service-registry reconciliation and narrowed env lookup exceptions shipped on 2026-04-15.\n\nDelivered behavior:\n- ServiceController now reconciles persisted service state during initialization.\n- Stale persisted pids are cleared before the first explicit status call.\n- Desired services with dead persisted pids are normalized to last_status=missing.\n- Non-desired services with dead persisted pids are normalized to last_status=stopped.\n- Live persisted pids remain intact.\n- current_site_package_dirs now only tolerates expected lookup failures such as missing lookup helpers or OS-level path lookup failures.\n- Unexpected runtime errors during site or sysconfig lookup now propagate instead of being silently swallowed.\n\nValidation:\n- Focused services and env tests passed.\n- Full repository suite passed with 129 tests.",
+    "created_at": "2026-04-16T05:01:59Z",
+    "updated_at": "2026-04-16T05:01:59Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot",
+      "outcome": "adopted",
+      "source_ref": "services-envs-slice-2026-04-15"
+    },
+    "custom": {}
+  },
+  "1d371": {
+    "id": "1d371",
+    "group": "decision_trail",
+    "node_type": "research_finding",
+    "summary": "External extension management should live in a separate package from zush core",
+    "status": "active",
+    "tags": [
+      "architecture",
+      "docs"
+    ],
+    "source": null,
+    "content": "External extension installation, registry resolution, and GitHub-backed source management should remain outside zush core.\\n\\nRecommended boundary:\\n- zush core owns local discovery, plugin loading, runtime integration, diagnostics, and controlled self-command mounting\\n- a separate manager package owns remote registry access, GitHub auth, install and update behavior, and manager-owned install metadata\\n- the manager should install extensions into local env roots that zush can already scan\\n- scoop-like behavior is supported by combining a manager package with zush's current self-command and discovery surfaces\\n\\nDocumentation source:\\n- docs/extension-management.md describes the recommended package shape, install layout, and integration model\\n- README.md now states the current zush capability boundary and links to that document",
+    "created_at": "2026-04-16T05:12:02Z",
+    "updated_at": "2026-04-16T05:12:02Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot",
+      "outcome": "adopted",
+      "source_ref": "external-manager-doc-2026-04-15"
+    },
+    "custom": {}
+  },
+  "1e6c5": {
+    "id": "1e6c5",
+    "group": "decision_trail",
+    "node_type": "research_finding",
+    "summary": "External manager document now serves as an implementation guide",
+    "status": "active",
+    "tags": [
+      "docs",
+      "architecture"
+    ],
+    "source": null,
+    "content": "The external extension management document was refined from a general architecture note into an instruction-oriented build guide.\\n\\nIt now defines:\\n- non-negotiable package boundaries\\n- responsibility rules for discovery, loading, and installation\\n- recommended local install layout\\n- phased delivery milestones\\n- implementation and validation checklists\\n\\nThis makes the document suitable as the working plan for building a separate management extension package.",
+    "created_at": "2026-04-16T05:15:18Z",
+    "updated_at": "2026-04-16T05:15:18Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot",
+      "outcome": "adopted",
+      "source_ref": "external-manager-guide-2026-04-15"
+    },
+    "custom": {}
+  }
+}

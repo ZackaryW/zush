@@ -158,21 +158,48 @@ def sync_service_registry(
 
 
 class ServiceController:
+    """Manage persisted service state and detached service lifecycle operations."""
+
     def __init__(
         self,
         storage: ZushStorage,
         service_definitions: dict[str, tuple[str, ServiceDefinition]],
     ) -> None:
+        """Initialize the controller and reconcile persisted service state against live processes."""
         self._storage = storage
         self._definitions = service_definitions
-        sync_service_registry(storage, service_definitions)
+        data = sync_service_registry(storage, service_definitions)
+        self._reconcile_registry_state(data)
 
     def list_services(self) -> list[str]:
+        """Return all registered service names in sorted order."""
         data = read_service_registry(self._storage)
         services = data.get("services")
         if not isinstance(services, dict):
             return []
         return sorted(services.keys())
+
+    def _reconcile_registry_state(self, data: dict[str, Any]) -> None:
+        """Clear stale pids and normalize persisted status for services missing at startup."""
+        services = data.get("services")
+        if not isinstance(services, dict):
+            return
+
+        changed = False
+        for entry in services.values():
+            if not isinstance(entry, dict):
+                continue
+            pid = entry.get("pid")
+            if not isinstance(pid, int):
+                continue
+            if self._is_running(pid):
+                continue
+            entry["pid"] = None
+            entry["last_status"] = "missing" if bool(entry.get("desired", False)) else "stopped"
+            changed = True
+
+        if changed:
+            self._save(data)
 
     def start(self, name: str) -> str:
         data, entry = self._load_entry(name)

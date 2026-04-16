@@ -69,6 +69,7 @@ class Plugin:
 
     __slots__ = (
         "_commands",
+        "_system_commands",
         "_plugin_name",
         "_provided_globals",
         "_provided_factories",
@@ -79,6 +80,7 @@ class Plugin:
 
     def __init__(self) -> None:
         self._commands: dict[str, click.Command | click.Group] = {}
+        self._system_commands: dict[str, click.Command | click.Group] = {}
         self._plugin_name: str | None = None
         self._provided_globals: dict[str, Any] = {}
         self._provided_factories: dict[str, ProviderFactorySpec] = {}
@@ -93,7 +95,29 @@ class Plugin:
 
     @property
     def commands(self) -> dict[str, click.Command | click.Group]:
+        """Return the plugin's regular command tree keyed by dotted path."""
         return self._commands
+
+    @property
+    def system_commands(self) -> dict[str, click.Command | click.Group]:
+        """Return commands that zush may mount directly under the reserved self group."""
+        return self._system_commands
+
+    def system_command(
+        self,
+        name: str,
+        callback: Callable[..., Any] | None = None,
+        help: str | None = None,
+        **kwargs: Any,
+    ) -> Plugin:
+        """Register one controlled system command for mounting under self."""
+        self._system_commands[name] = PluginCommand(
+            name,
+            callback=callback,
+            help=help or name,
+            **kwargs,
+        )
+        return self
 
     @property
     def provided_globals(self) -> dict[str, Any]:

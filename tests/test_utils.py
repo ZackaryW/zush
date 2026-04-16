@@ -7,6 +7,8 @@ import click
 from click.testing import CliRunner
 
 from zush.configparse.config import Config
+from zush.discovery_provider.direct_package import DirectPackageDiscoveryProvider
+from zush.discovery_provider.flat_folder import FlatFolderDiscoveryProvider
 from zush.mocking.cli import parse_mock_path
 from zush.utils.discovery import build_envs_to_scan, cached_package_paths_for_env, merge_commands_into_tree, scan_env_for_plugins
 from zush.utils.group import command_path, merge_commands_into_group, print_command_tree
@@ -92,6 +94,51 @@ plugin = type("Plugin", (), {"commands": {"demo.greet": click.Command("greet")}}
     assert "demo" in merged_tree
     assert any(entry.get("root") is True for entry in cache_entries)
     assert any(entry.get("package") == "zush_demo" for entry in cache_entries)
+
+
+def test_flat_folder_provider_discovers_enabled_package_candidates(tmp_path: Path) -> None:
+    """The flat-folder provider should yield only matching enabled package directories."""
+    env_root = tmp_path / "env"
+    env_root.mkdir()
+    enabled_pkg = env_root / "zush_demo"
+    enabled_pkg.mkdir()
+    (enabled_pkg / "__zush__.py").write_text("", encoding="utf-8")
+    disabled_pkg = env_root / "zush_skip"
+    disabled_pkg.mkdir()
+    (disabled_pkg / "__zush__.py").write_text("", encoding="utf-8")
+    ignored_pkg = env_root / "demo"
+    ignored_pkg.mkdir()
+    (ignored_pkg / "__zush__.py").write_text("", encoding="utf-8")
+
+    provider = FlatFolderDiscoveryProvider()
+
+    candidates = provider.discover_candidates(
+        env_root,
+        ["zush_"],
+        disabled_extensions={"zush_skip"},
+    )
+
+    assert [candidate.package_path for candidate in candidates] == [enabled_pkg]
+    assert [candidate.extension_key for candidate in candidates] == ["zush_demo"]
+
+
+def test_direct_package_provider_discovers_env_path_when_it_is_the_plugin(tmp_path: Path) -> None:
+    """The direct-package provider should treat the env path itself as a plugin package root."""
+    package_root = tmp_path / "zush_direct"
+    package_root.mkdir()
+    (package_root / "__zush__.py").write_text("", encoding="utf-8")
+
+    provider = DirectPackageDiscoveryProvider()
+
+    report = provider.discover(
+        package_root,
+        ["zush_"],
+        disabled_extensions=set(),
+    )
+
+    assert [candidate.package_path for candidate in report.candidates] == [package_root]
+    assert [candidate.extension_key for candidate in report.candidates] == ["zush_direct"]
+    assert report.diagnostics == []
 
 
 def test_group_utils_merge_and_print_tree() -> None:

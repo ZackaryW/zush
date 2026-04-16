@@ -19,12 +19,12 @@ def current_site_package_dirs() -> list[Path]:
             path = Path(raw_path)
             if path.is_dir():
                 candidates.append(path)
-    except Exception:
+    except (AttributeError, OSError):
         pass
 
     try:
         discovered_paths = sysconfig.get_paths()
-    except Exception:
+    except (AttributeError, OSError):
         discovered_paths = {}
     for key in ("purelib", "platlib"):
         raw_path = discovered_paths.get(key)
@@ -36,7 +36,7 @@ def current_site_package_dirs() -> list[Path]:
 
     try:
         user_site = site.getusersitepackages()
-    except Exception:
+    except (AttributeError, OSError):
         user_site = None
     if user_site:
         path = Path(user_site)
