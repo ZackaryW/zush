@@ -391,5 +391,26 @@
       "source_ref": "plugin-skill-manager-boundary-2026-04-15"
     },
     "custom": {}
+  },
+  "21ecf": {
+    "id": "21ecf",
+    "group": "decision_trail",
+    "node_type": "research_finding",
+    "summary": "Exported plugin surface mirrors legacy pattern for compatibility fallback",
+    "status": "active",
+    "tags": [
+      "compatibility",
+      "plugin-surface"
+    ],
+    "source": null,
+    "content": "Compatibility fallback update shipped on 2026-04-16.\n\nDelivered behavior:\n- The exported plugin surface now mirrors the legacy pattern.\n- Compatibility fallback can keep resolving older consumers that still expect the previous export shape.\n- The change preserves backward compatibility without changing the newer internal direction.\n\nWhy this belongs in memory:\n- The durable takeaway is behavioral compatibility at the plugin surface, not just a file edit.\n- Future refactors should preserve the fallback until legacy consumers are intentionally dropped.\n",
+    "created_at": "2026-04-16T19:49:58Z",
+    "updated_at": "2026-04-16T19:49:58Z",
+    "expires_at": null,
+    "metadata": {
+      "outcome": "adopted",
+      "source_ref": "plugin-surface-compat-fallback-2026-04-16"
+    },
+    "custom": {}
   }
 }
