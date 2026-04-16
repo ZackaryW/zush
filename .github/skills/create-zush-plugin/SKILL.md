@@ -4,7 +4,8 @@ description: >
   Guides the agent to scaffold a new zush plugin for this project, including package layout,
   __zush__.py, use of zush.plugin.Plugin, config/env considerations, and basic verification
   via --mock-path or include_current_env. Use when the user asks to create or extend a zush
-  plugin.
+  plugin. Do not use this skill as the primary guide for remote registry, installer, or
+  extension-management packages.
 ---
 
 # Create zush Plugin
@@ -18,6 +19,17 @@ current zush project. It covers:
 - Using `zush.plugin.Plugin` to define commands with dotted paths.
 - How the plugin will be discovered (envs, env_prefix, playground, include_current_env).
 - How to verify the plugin using `--mock-path` or the current env.
+
+This skill is for extensions that zush will discover and load from local package roots.
+It is **not** the main guide for building a separate extension-management package that owns:
+
+- remote registry access
+- GitHub organization or private repository resolution
+- install, update, uninstall, or status state
+- manager-owned install metadata
+
+For that kind of package, follow `docs/extension-management.md` and use controlled
+`self` commands only as the integration surface into zush.
 
 Primary expectation:
 
@@ -37,6 +49,16 @@ The agent should apply this skill when:
 
 Do **not** use this skill for generic Click apps; it is specific to this zush repo.
 
+Do **not** use this skill as the main plan when the user is trying to build:
+
+- a package manager for zush extensions
+- remote registry support
+- GitHub-backed install or update flows
+- manager-owned `self install`, `self update`, `self uninstall`, `self search`, or `self status`
+
+In those cases, treat the work as a separate management-extension package and follow
+`docs/extension-management.md` first.
+
 ## Prerequisites (what the agent should know)
 
 - This repo’s zush architecture:
@@ -45,6 +67,7 @@ Do **not** use this skill for generic Click apps; it is specific to this zush re
   - Discovery works on the installed package directory name, not the distribution name and not a package that only exists in the workspace source tree.
   - Commands are registered via **dotted keys** (e.g. `"demo.greet"`, `"shared.hello"`).
   - `zush.plugin.Plugin` is the preferred helper for building `.commands`.
+  - Controlled commands under `self` should use the dedicated self-command surface, not ordinary dotted `self.*` command keys.
 - How discovery works:
   - Reads `~/.zush/config.toml` (`envs`, `playground`, `env_prefix`, `include_current_env`).
   - If `include_current_env` is true, it also scans the current interpreter’s site-packages
@@ -68,7 +91,20 @@ When creating a new zush plugin, follow this workflow.
      - Subcommands and depth (e.g. `demo greet`, `deep a b c d leaf`).
    - Whether they want **hooks** (before_cmd/after_cmd/on_error/on_ctx_match) as part of this plugin.
 
-2. Summarize the intended command tree, e.g.:
+2. Check whether the request is actually for a management extension instead of a normal plugin.
+
+Treat it as a management-extension request if the user primarily wants:
+
+- install or uninstall behavior
+- search or registry resolution
+- GitHub repository or organization lookup
+- private source authentication
+- manager-owned status or update reporting
+
+If so, do not keep following this skill as the main implementation plan. Switch to the
+separate-package guidance in `docs/extension-management.md`.
+
+3. Summarize the intended command tree, e.g.:
 
    - `zush demo greet`
    - `zush tools convert image`
@@ -154,6 +190,7 @@ Guidelines:
 - Use **`group(...).command(...)`** chaining to build nested commands.
 - Use **dotted paths** implicitly via the helper:
   - `p.group("demo").command("greet", ...)` → keys `"demo"` and `"demo.greet"`.
+- For controlled commands that should live directly under `self`, use `Plugin.system_command(...)` instead of ordinary dotted keys under `self.*`.
 - To attach under another plugin’s group (e.g. shared groups), use the same path:
   - In your plugin: `p.group("shared", ...)` (if you are first) or add deeper commands:
     - `p.group("shared", ...).group("nested").group("from").group("deep").command("run", ...)`
@@ -272,6 +309,7 @@ When the user wants a quick example in this repo:
 
 - Prefer **`zush.plugin.Plugin`** over manually building `.commands` dicts; it keeps
   the plugin code consistent with the rest of the project (see `playground/zush_demo`).
+- If the feature looks like package management, registry search, remote install, or GitHub source resolution, stop treating it as a normal plugin-scaffold task and follow `docs/extension-management.md` instead.
 - If the user asks to create or migrate a real plugin, create `__zush__.py` in the actual installed target package first. Do not substitute a playground implementation or invent a sibling package name unless the task explicitly includes packaging changes for that sibling package.
 - Keep plugin callback functions small and focused; avoid heavy logic in `__zush__.py`.
 - When appending under shared groups, be mindful of **first-wins** behavior in
