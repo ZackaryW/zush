@@ -1,0 +1,1 @@
+from zush.pluginloader.plugin import Plugin #noqa
