@@ -10,6 +10,7 @@ from typing import Any
 import click
 
 from zush.configparse.config import load_config, toggle_extension
+from zush.core.cron import add_cron_job, list_cron_jobs, remove_cron_job, start_cron_scheduler
 from zush.core.context import HookRegistry, ZushCtx
 from zush.core.services import ServiceController
 from zush.core.storage import default_storage
@@ -127,11 +128,46 @@ def add_reserved_self_group(
         callback=_diagnostics_callback(diagnostics or []),
         help="Print discovery and command registration diagnostics.",
     )
+    cron_group = click.Group(
+        "cron",
+        help="Manage scheduled zush commands stored in cron.json.",
+    )
+    cron_add_cmd = click.Command(
+        "add",
+        callback=_cron_add_callback(root, storage or default_storage()),
+        params=[
+            click.Argument(["schedule"]),
+            click.Argument(["command_path"]),
+        ],
+        help="Add one cron job for a dotted command path.",
+        context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+    )
+    cron_start_cmd = click.Command(
+        "start",
+        callback=_cron_start_callback(root, storage or default_storage()),
+        help="Start the foreground cron scheduler loop.",
+    )
+    cron_list_cmd = click.Command(
+        "list",
+        callback=_cron_list_callback(storage or default_storage()),
+        help="List persisted cron jobs.",
+    )
+    cron_remove_cmd = click.Command(
+        "remove",
+        callback=_cron_remove_callback(storage or default_storage()),
+        params=[click.Argument(["name"])],
+        help="Remove one persisted cron job.",
+    )
+    cron_group.add_command(cron_add_cmd, "add")
+    cron_group.add_command(cron_list_cmd, "list")
+    cron_group.add_command(cron_remove_cmd, "remove")
+    cron_group.add_command(cron_start_cmd, "start")
     self_group.add_command(map_cmd, "map")
     self_group.add_command(config_cmd, "config")
     self_group.add_command(toggle_cmd, "toggle")
     self_group.add_command(services_cmd, "services")
     self_group.add_command(diagnostics_cmd, "diagnostics")
+    self_group.add_command(cron_group, "cron")
     for name, command in (system_commands or {}).items():
         if name not in self_group.commands:
             self_group.add_command(command, name)
@@ -253,5 +289,90 @@ def _diagnostics_callback(diagnostics: list[DiscoveryDiagnostic]):
                 parts.append(diagnostic.package_path.name)
             parts.append(diagnostic.message)
             click.echo(" | ".join(parts))
+
+    return callback
+
+
+def _cron_add_callback(root: click.Group, storage: Any):
+    """Build the self cron add callback bound to one root group and storage target."""
+    def callback(schedule: str, command_path: str) -> None:
+        """Persist one cron job from a schedule, dotted command path, and trailing command tokens."""
+        raw_tokens, name, detach = _parse_cron_add_tokens(list(click.get_current_context().args))
+        job_name = add_cron_job(
+            root,
+            storage,
+            schedule=schedule,
+            command_path=command_path,
+            raw_tokens=raw_tokens,
+            name=name,
+            detach=detach,
+        )
+        click.echo(f"added {job_name}")
+
+    return callback
+
+
+def _parse_cron_add_tokens(tokens: list[str]) -> tuple[list[str], str | None, bool]:
+    """Parse trailing self cron add tokens into command args plus optional name and detach flags."""
+    remaining = list(tokens)
+    detach = False
+    name: str | None = None
+    while remaining:
+        tail = remaining[-1]
+        if tail in {"-d", "--detach"}:
+            detach = True
+            remaining.pop()
+            continue
+        if len(remaining) >= 2 and remaining[-2] in {"--name", "-n"}:
+            name = tail
+            remaining = remaining[:-2]
+            continue
+        if tail.startswith("--name="):
+            name = tail.split("=", 1)[1]
+            remaining.pop()
+            continue
+        if tail.startswith("-n="):
+            name = tail.split("=", 1)[1]
+            remaining.pop()
+            continue
+        if tail in {"--name", "-n"}:
+            raise click.ClickException(f"{tail} requires a value")
+        break
+    return remaining, name, detach
+
+
+def _cron_start_callback(root: click.Group, storage: Any):
+    """Build the self cron start callback bound to one root group and storage target."""
+    def callback() -> None:
+        """Start the foreground cron scheduler loop for the active command tree and storage."""
+        start_cron_scheduler(root, storage)
+
+    return callback
+
+
+def _cron_list_callback(storage: Any):
+    """Build the self cron list callback bound to one storage target."""
+    def callback() -> None:
+        """Print persisted cron jobs from the active base cron registry."""
+        jobs = list_cron_jobs(storage)
+        if not jobs:
+            click.echo("(none)")
+            return
+        for name, job in jobs:
+            schedule = str(job.get("schedule") or "")
+            command_path = str(job.get("command") or "")
+            mode = "detached" if bool(job.get("detach", False)) else "attached"
+            last_run = str(job.get("last_run_at") or "never")
+            click.echo(f"{name} | {schedule} | {command_path} | {mode} | {last_run}")
+
+    return callback
+
+
+def _cron_remove_callback(storage: Any):
+    """Build the self cron remove callback bound to one storage target."""
+    def callback(name: str) -> None:
+        """Delete one persisted cron job by name from the active base cron registry."""
+        remove_cron_job(storage, name)
+        click.echo(f"removed {name}")
 
     return callback

@@ -412,5 +412,28 @@
       "source_ref": "plugin-surface-compat-fallback-2026-04-16"
     },
     "custom": {}
+  },
+  "220bb": {
+    "id": "220bb",
+    "group": "decision_trail",
+    "node_type": "research_finding",
+    "summary": "Self cron surface ships with croniter-backed scheduler",
+    "status": "active",
+    "tags": [
+      "cron",
+      "self-surface",
+      "implementation"
+    ],
+    "source": null,
+    "content": "Cron surface implementation shipped on 2026-04-17.\n\nDelivered behavior:\n- Added a built-in `self cron` group with `add` and `start` commands under the zush-owned reserved self surface.\n- `self cron add` persists jobs to `cron.json` in the active base config directory via `storage.config_dir() / \"cron.json\"`; the storage protocol was intentionally not widened.\n- Job names default to `cron-N` using the next discovered suffix, while explicit trailing `--name` and `-d` flags are preserved even after command args.\n- Scheduled execution stores positional args plus `key=value` kwargs separately and invokes the resolved command callback directly inside a Click context, which keeps helper-registered plugin commands compatible even when they do not expose Click option metadata.\n- Detached jobs spawn a separate Python process bound to the same base directory, while foreground scheduler execution remains in-process.\n- Added the lightweight `croniter` dependency for cron expression validation and due-minute matching.\n\nValidation:\n- Focused cron tests passed.\n- Full repository test suite passed with 134 tests.",
+    "created_at": "2026-04-18T01:57:14Z",
+    "updated_at": "2026-04-18T01:57:14Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot",
+      "outcome": "adopted",
+      "source_ref": "cron-slice-2026-04-17"
+    },
+    "custom": {}
   }
 }

@@ -1,5 +1,6 @@
 """TDD: ZushGroup and merge_commands_into_group."""
 
+import json
 import os
 import re
 import sys
@@ -440,3 +441,221 @@ plugin = type("Plugin", (), {"commands": {"demo.run": click.Command("run", callb
     assert "command-conflict" in result.output
     assert "demo.run" in result.output
     assert "zush_second" in result.output
+
+
+def test_self_cron_add_persists_job_in_base_cron_json(tmp_path: Path) -> None:
+    """self cron add should persist a job in cron.json under the active base config directory."""
+    env_root = tmp_path / "env"
+    env_root.mkdir()
+    pkg = env_root / "zush_demo"
+    pkg.mkdir()
+    (pkg / "__zush__.py").write_text(
+        """
+import click
+from zush.pluginloader.plugin import Plugin
+
+
+plugin = Plugin()
+plugin.group("demo").command("run", callback=lambda: click.echo("ran"))
+ZushPlugin = plugin
+""",
+        encoding="utf-8",
+    )
+    storage = DirectoryStorage(tmp_path / "data")
+    storage.config_dir().mkdir(parents=True, exist_ok=True)
+    storage.config_file().write_text(
+        f'envs = ["{env_root.as_posix()}"]\nenv_prefix = ["zush_"]\ninclude_current_env = false\n',
+        encoding="utf-8",
+    )
+    group = create_zush_group(storage=storage)
+
+    result = CliRunner().invoke(group, ["self", "cron", "add", "*/5 * * * *", "demo.run", "alpha", "count=2"])
+
+    assert result.exit_code == 0, (result.output, repr(result.exception))
+    assert "cron-1" in result.output
+    cron_path = storage.config_dir() / "cron.json"
+    assert cron_path.exists()
+    payload = json.loads(cron_path.read_text(encoding="utf-8"))
+    assert payload == {
+        "jobs": {
+            "cron-1": {
+                "schedule": "*/5 * * * *",
+                "command": "demo.run",
+                "args": ["alpha"],
+                "kwargs": {"count": "2"},
+                "detach": False,
+                "last_run_at": None,
+            }
+        }
+    }
+
+
+def test_self_cron_add_accepts_trailing_name_and_detach_options(tmp_path: Path) -> None:
+    """self cron add should keep parsing trailing args while still honoring trailing --name and -d options."""
+    env_root = tmp_path / "env"
+    env_root.mkdir()
+    pkg = env_root / "zush_demo"
+    pkg.mkdir()
+    (pkg / "__zush__.py").write_text(
+        """
+from zush.pluginloader.plugin import Plugin
+
+
+plugin = Plugin()
+plugin.group("demo").command("run", callback=lambda: None)
+ZushPlugin = plugin
+""",
+        encoding="utf-8",
+    )
+    storage = DirectoryStorage(tmp_path / "data")
+    storage.config_dir().mkdir(parents=True, exist_ok=True)
+    storage.config_file().write_text(
+        f'envs = ["{env_root.as_posix()}"]\nenv_prefix = ["zush_"]\ninclude_current_env = false\n',
+        encoding="utf-8",
+    )
+    group = create_zush_group(storage=storage)
+
+    result = CliRunner().invoke(
+        group,
+        [
+            "self",
+            "cron",
+            "add",
+            "0 0 * * *",
+            "demo.run",
+            "alpha",
+            "region=west",
+            "--name",
+            "nightly",
+            "-d",
+        ],
+    )
+
+    assert result.exit_code == 0, (result.output, repr(result.exception))
+    payload = json.loads((storage.config_dir() / "cron.json").read_text(encoding="utf-8"))
+    assert payload["jobs"]["nightly"] == {
+        "schedule": "0 0 * * *",
+        "command": "demo.run",
+        "args": ["alpha"],
+        "kwargs": {"region": "west"},
+        "detach": True,
+        "last_run_at": None,
+    }
+
+
+def test_self_cron_start_delegates_to_scheduler(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """self cron start should delegate to the cron scheduler for the active group and storage target."""
+    storage = DirectoryStorage(tmp_path / "data")
+    storage.config_dir().mkdir(parents=True, exist_ok=True)
+    storage.config_file().write_text(
+        'envs = []\nenv_prefix = ["zush_"]\ninclude_current_env = false\n',
+        encoding="utf-8",
+    )
+    group = create_zush_group(storage=storage)
+    seen: list[tuple[object, object]] = []
+
+    def fake_start_scheduler(root: click.Group, active_storage: DirectoryStorage) -> None:
+        """Record one delegated scheduler call for assertion in this test."""
+        seen.append((root, active_storage))
+
+    monkeypatch.setattr("zush.core.group.start_cron_scheduler", fake_start_scheduler)
+
+    result = CliRunner().invoke(group, ["self", "cron", "start"])
+
+    assert result.exit_code == 0, (result.output, repr(result.exception))
+    assert seen == [(group, storage)]
+
+
+def test_self_cron_list_prints_registered_jobs(tmp_path: Path) -> None:
+    """self cron list should print persisted cron jobs from the active base cron registry."""
+    storage = DirectoryStorage(tmp_path / "data")
+    storage.config_dir().mkdir(parents=True, exist_ok=True)
+    storage.config_file().write_text(
+        'envs = []\nenv_prefix = ["zush_"]\ninclude_current_env = false\n',
+        encoding="utf-8",
+    )
+    (storage.config_dir() / "cron.json").write_text(
+        json.dumps(
+            {
+                "jobs": {
+                    "cron-1": {
+                        "schedule": "*/5 * * * *",
+                        "command": "self.map",
+                        "args": [],
+                        "kwargs": {},
+                        "detach": False,
+                        "last_run_at": None,
+                    },
+                    "nightly": {
+                        "schedule": "0 0 * * *",
+                        "command": "self.diagnostics",
+                        "args": [],
+                        "kwargs": {},
+                        "detach": True,
+                        "last_run_at": "2026-04-17T00:00",
+                    },
+                }
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    group = create_zush_group(storage=storage)
+
+    result = CliRunner().invoke(group, ["self", "cron", "list"])
+
+    assert result.exit_code == 0, (result.output, repr(result.exception))
+    assert "cron-1 | */5 * * * * | self.map | attached | never" in result.output
+    assert "nightly | 0 0 * * * | self.diagnostics | detached | 2026-04-17T00:00" in result.output
+
+
+def test_self_cron_list_reports_empty_registry(tmp_path: Path) -> None:
+    """self cron list should print a clean empty marker when no jobs are registered."""
+    storage = DirectoryStorage(tmp_path / "data")
+    storage.config_dir().mkdir(parents=True, exist_ok=True)
+    storage.config_file().write_text(
+        'envs = []\nenv_prefix = ["zush_"]\ninclude_current_env = false\n',
+        encoding="utf-8",
+    )
+    group = create_zush_group(storage=storage)
+
+    result = CliRunner().invoke(group, ["self", "cron", "list"])
+
+    assert result.exit_code == 0, (result.output, repr(result.exception))
+    assert "(none)" in result.output.lower()
+
+
+def test_self_cron_remove_deletes_named_job(tmp_path: Path) -> None:
+    """self cron remove should delete one persisted job from the active base cron registry."""
+    storage = DirectoryStorage(tmp_path / "data")
+    storage.config_dir().mkdir(parents=True, exist_ok=True)
+    storage.config_file().write_text(
+        'envs = []\nenv_prefix = ["zush_"]\ninclude_current_env = false\n',
+        encoding="utf-8",
+    )
+    (storage.config_dir() / "cron.json").write_text(
+        json.dumps(
+            {
+                "jobs": {
+                    "cron-1": {
+                        "schedule": "*/5 * * * *",
+                        "command": "self.map",
+                        "args": [],
+                        "kwargs": {},
+                        "detach": False,
+                        "last_run_at": None,
+                    }
+                }
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    group = create_zush_group(storage=storage)
+
+    result = CliRunner().invoke(group, ["self", "cron", "remove", "cron-1"])
+
+    assert result.exit_code == 0, (result.output, repr(result.exception))
+    assert "removed cron-1" in result.output.lower()
+    payload = json.loads((storage.config_dir() / "cron.json").read_text(encoding="utf-8"))
+    assert payload == {"jobs": {}}

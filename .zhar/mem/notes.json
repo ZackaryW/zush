@@ -34,5 +34,77 @@
       "target_ids": "0f210"
     },
     "custom": {}
+  },
+  "231c0": {
+    "id": "231c0",
+    "group": "notes",
+    "node_type": "note",
+    "summary": "Follow-up on 2026-04-17:",
+    "status": "active",
+    "tags": [],
+    "source": null,
+    "content": "Follow-up on 2026-04-17:\n- Added `self cron list` to inspect the active `cron.json` registry with schedule, command path, mode, and last-run fields.\n- Added `self cron remove <name>` to delete persisted jobs from the same base-folder registry.\n- Validation passed with the full repository suite at 137 tests.",
+    "created_at": "2026-04-18T02:00:04Z",
+    "updated_at": "2026-04-18T02:00:04Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "copilot",
+      "target_ids": "220bb"
+    },
+    "custom": {}
+  },
+  "249a1": {
+    "id": "249a1",
+    "group": "notes",
+    "node_type": "note",
+    "summary": "Foreground-scheduler posture clarified on 2026-04-17:",
+    "status": "active",
+    "tags": [],
+    "source": null,
+    "content": "Foreground-scheduler posture clarified on 2026-04-17:\n- If zush keeps `self cron start` as a foreground scheduler only, no additional runtime implementation is required in zush itself.\n- Backgrounding, boot startup, restart policy, and singleton ownership are delegated to an external supervisor such as Windows Task Scheduler, NSSM, systemd, launchd, or supervisord.\n- Under this posture, any zush follow-up is documentation only rather than new scheduler lifecycle code.",
+    "created_at": "2026-04-18T02:02:16Z",
+    "updated_at": "2026-04-18T02:02:16Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "copilot",
+      "target_ids": "220bb"
+    },
+    "custom": {}
+  },
+  "25d5e": {
+    "id": "25d5e",
+    "group": "notes",
+    "node_type": "note",
+    "summary": "Expanded cron coverage on 2026-04-17:",
+    "status": "active",
+    "tags": [],
+    "source": null,
+    "content": "Expanded cron coverage on 2026-04-17:\n- Added a representative cron expression matrix covering wildcard, step, list, range, day-of-week, day-of-month, named month, and named weekday shapes through `run_due_cron_jobs`.\n- Added invalid-expression coverage to confirm broken schedules are skipped without dispatch.\n- Added direct tests for the key/value delivery surface so persisted `key=value` entries are extracted separately from positional args and delivered straight to command callbacks.\n- Added mocked detached-process coverage for `spawn_detached_cron_job` and mocked dispatch coverage for due-job scheduling.\n- Validation passed with the full repository suite at 156 tests.",
+    "created_at": "2026-04-18T02:20:12Z",
+    "updated_at": "2026-04-18T02:20:12Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "copilot",
+      "target_ids": "220bb"
+    },
+    "custom": {}
+  },
+  "2609a": {
+    "id": "2609a",
+    "group": "notes",
+    "node_type": "note",
+    "summary": "Service test harness hardening on 2026-04-17:",
+    "status": "active",
+    "tags": [],
+    "source": null,
+    "content": "Service test harness hardening on 2026-04-17:\n- Added an autouse pytest fixture in `tests/conftest.py` that scans tmp_path-owned `services.json` registries after each test and terminates any recorded detached service pids.\n- The fixture also normalizes the registry state back to `pid = null`, `desired = false`, and `last_status = stopped` so failed tests do not leave misleading state behind.\n- This acts as a safety net for service tests even when assertions fail before an explicit `self services --stop` call.\n- Validation passed for the service-focused suites and the full repository suite at 156 tests.",
+    "created_at": "2026-04-18T02:22:45Z",
+    "updated_at": "2026-04-18T02:22:45Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "copilot",
+      "target_ids": "220bb"
+    },
+    "custom": {}
   }
 }
