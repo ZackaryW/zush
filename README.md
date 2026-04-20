@@ -22,6 +22,7 @@ zush currently provides:
 - extension enable or disable control through `disabled_extensions` and `zush self toggle`
 - boot-time diagnostics through `zush self diagnostics`
 - controlled `self` command registration for plugins and host apps
+- built-in cron scheduling with reusable registrations, lifejobs, and simulated runtime controls
 - detached service management and runtime provider integration
 
 zush does not currently act as a package manager. Remote registry lookup, GitHub-based installation, update policy, and install metadata are better implemented in a separate extension-management package.
@@ -401,6 +402,104 @@ Combined with `provide_factory(...)`, this lets a single plugin package own:
 - the provider/control-surface object
 - the plugin-facing commands that use both
 
+## Cron Scheduling
+
+zush includes a built-in scheduler under `zush self cron ...`.
+
+Cron configuration is stored in the active zush config directory in `cron.json`. Single-day completion tracking is stored separately in `cron_completion.jsonl` when you opt a job or lifejob into that behavior.
+
+The scheduler uses a two-phase model:
+
+1. Register one reusable command payload.
+2. Add one or more cron jobs that reference that registration.
+
+Basic flow:
+
+```bash
+zush self cron register nightly-task demo.run region=west
+zush self cron add nightly-task "0 2 * * *"
+zush self cron list
+```
+
+Registrations keep the actual command path and its stored args or kwargs. Jobs only keep the schedule plus the registration name, so multiple schedules can reuse the same registered command.
+
+Trailing tokens after `register <name> <command_path>` are stored as command input:
+
+- plain trailing tokens become positional args
+- `key=value` tokens become keyword args
+
+Example:
+
+```bash
+zush self cron register report-task reports.build weekly region=west count=3
+```
+
+Detached execution is configured on the registration, not on the job. Append `-d` or `--detach` to the end of the register command if matching jobs should run in a detached worker process:
+
+```bash
+zush self cron register nightly-task demo.run --detach
+zush self cron add nightly-task "0 2 * * *"
+```
+
+If a registration is detached, any cron job or lifejob that points at it inherits that detached behavior.
+
+### Lifejobs
+
+Lifejobs are delayed follower jobs attached to a normal cron job. They reuse a registration and run some number of seconds after the target job finishes.
+
+Example:
+
+```bash
+zush self cron register main-task demo.main
+zush self cron register cleanup-task demo.cleanup
+zush self cron add main-task "*/5 * * * *"
+zush self cron add cleanup-task --lifejob cron-1 --delay 30
+```
+
+This creates a normal scheduled job for `main-task`, then a lifejob that runs `cleanup-task` 30 seconds after `cron-1` completes. If the target job runs again before the lifejob fires, zush reschedules the lifejob from the latest target run.
+
+Removing a cron job also removes any attached lifejobs.
+
+### Single-Day Completion
+
+Use `-sdc` or `--single-day-complete` when a job or lifejob should run at most once per day even if it becomes due multiple times:
+
+```bash
+zush self cron add nightly-task "*/5 * * * *" --single-day-complete
+zush self cron add cleanup-task --lifejob cron-1 --delay 30 --single-day-complete
+```
+
+When enabled, zush records the completed entry name under that ISO date in `cron_completion.jsonl` and skips later same-day due runs for that entry.
+
+By default, the completion day rolls over at `00:00`. Use `--day-change HH:MM` to move that boundary when a logical workday should reset later, such as `06:00`:
+
+```bash
+zush self cron add nightly-task "*/5 * * * *" --single-day-complete --day-change 06:00
+zush self cron add cleanup-task --lifejob cron-1 --delay 30 --single-day-complete --day-change 06:00
+```
+
+With `--day-change 06:00`, a run at `2026-04-17T05:30:00` still counts toward the `2026-04-16` completion day, while runs at or after `06:00` count toward `2026-04-17`.
+
+### Runtime Controls
+
+Use `zush self cron start` to run the foreground scheduler loop:
+
+```bash
+zush self cron start
+```
+
+The start surface also supports simulation and testing controls:
+
+```bash
+zush self cron start --scale 60 --mocktime 2026-04-17T10:15:00 --dry-run
+```
+
+- `--scale` advances simulated scheduler time faster or slower than wall clock
+- `--mocktime` starts the scheduler from a fixed ISO datetime
+- `--dry-run` evaluates due jobs and lifejobs without executing commands or persisting cron state changes
+
+Use `zush self cron register --help`, `zush self cron add --help`, and `zush self cron start --help` for the full flag descriptions.
+
 ## Built-in Commands
 
 The `self` group is reserved for zush itself.
@@ -411,10 +510,11 @@ The `self` group is reserved for zush itself.
 - `zush self toggle` shows which extensions are loaded this boot and which are disabled for the next boot.
 - `zush self toggle <extension>` enables or disables one extension key for future boots.
 - `zush self services ...` manages plugin-declared detached services.
+- `zush self cron ...` manages cron registrations, jobs, lifejobs, and scheduler runtime controls.
 
 Plugins cannot publish ordinary command paths under `self.*`.
 
-Plugins may register controlled self commands through `Plugin.system_command(...)`, and host apps may register their own self commands when calling `create_zush_group(...)`. Built-in zush command names still take priority, so plugin or host registrations cannot override `map`, `config`, `diagnostics`, `toggle`, or `services`.
+Plugins may register controlled self commands through `Plugin.system_command(...)`, and host apps may register their own self commands when calling `create_zush_group(...)`. Built-in zush command names still take priority, so plugin or host registrations cannot override `map`, `config`, `diagnostics`, `toggle`, `services`, or `cron`.
 
 ## Embedding
 

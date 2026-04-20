@@ -1,6 +1,6 @@
 [project]
 name = "zush"
-version = "0.4.2"
+version = "0.5.0"
 description = "Zush is a CLI framework for building nested CLI applications."
 readme = "README.md"
 authors = [

@@ -64,13 +64,18 @@ ZushPlugin = plugin
     group = create_zush_group(config=Config(envs=[env_root], env_prefix=["zush_"]), storage=storage)
     write_cron_registry(
         {
-            "jobs": {
-                "cron-1": {
-                    "schedule": "* * * * *",
+            "registrations": {
+                "deliver": {
                     "command": "demo.run",
                     "args": ["alpha"],
                     "kwargs": {"count": "2"},
                     "detach": False,
+                }
+            },
+            "jobs": {
+                "cron-1": {
+                    "schedule": "* * * * *",
+                    "target": "deliver",
                     "last_run_at": None,
                 }
             }
@@ -96,13 +101,18 @@ def test_run_due_cron_jobs_dispatches_detached_jobs_without_in_process_invoke(
     group = create_zush_group(config=Config(envs=[], env_prefix=["zush_"]), storage=storage)
     write_cron_registry(
         {
-            "jobs": {
-                "nightly": {
-                    "schedule": "* * * * *",
+            "registrations": {
+                "nightly-task": {
                     "command": "self.map",
                     "args": [],
                     "kwargs": {},
                     "detach": True,
+                }
+            },
+            "jobs": {
+                "nightly": {
+                    "schedule": "* * * * *",
+                    "target": "nightly-task",
                     "last_run_at": None,
                 }
             }
@@ -156,13 +166,18 @@ def test_run_due_cron_jobs_covers_crontab_schedule_matrix(
     group = create_zush_group(config=Config(envs=[], env_prefix=["zush_"]), storage=storage)
     write_cron_registry(
         {
-            "jobs": {
-                "matrix": {
-                    "schedule": schedule,
+            "registrations": {
+                "matrix-target": {
                     "command": "self.map",
                     "args": [],
                     "kwargs": {},
                     "detach": False,
+                }
+            },
+            "jobs": {
+                "matrix": {
+                    "schedule": schedule,
+                    "target": "matrix-target",
                     "last_run_at": None,
                 }
             }
@@ -194,13 +209,18 @@ def test_run_due_cron_jobs_ignores_invalid_schedule_without_dispatch(tmp_path: P
     group = create_zush_group(config=Config(envs=[], env_prefix=["zush_"]), storage=storage)
     write_cron_registry(
         {
-            "jobs": {
-                "broken": {
-                    "schedule": "not a crontab",
+            "registrations": {
+                "broken-target": {
                     "command": "self.map",
                     "args": [],
                     "kwargs": {},
                     "detach": False,
+                }
+            },
+            "jobs": {
+                "broken": {
+                    "schedule": "not a crontab",
+                    "target": "broken-target",
                     "last_run_at": None,
                 }
             }
@@ -257,13 +277,18 @@ def test_invoke_cron_job_delivers_args_and_kwargs_to_callback_and_runs_hooks(tmp
     root.add_command(demo, "demo")
     write_cron_registry(
         {
-            "jobs": {
-                "deliver": {
-                    "schedule": "* * * * *",
+            "registrations": {
+                "deliver-target": {
                     "command": "demo.delivery",
                     "args": ["alpha"],
                     "kwargs": {"count": "2", "region": "west"},
                     "detach": False,
+                }
+            },
+            "jobs": {
+                "deliver": {
+                    "schedule": "* * * * *",
+                    "target": "deliver-target",
                     "last_run_at": None,
                 }
             }
@@ -274,6 +299,41 @@ def test_invoke_cron_job_delivers_args_and_kwargs_to_callback_and_runs_hooks(tmp
     invoke_cron_job(root, storage, "deliver")
 
     assert seen == [("before", "demo.delivery"), ("alpha", "2", "west"), ("after", "demo.delivery")]
+
+
+def test_invoke_cron_job_keeps_legacy_inline_job_payloads_working(tmp_path: Path) -> None:
+    """invoke_cron_job should continue honoring legacy inline command payloads already stored in cron.json."""
+    storage = DirectoryStorage(tmp_path / "data")
+    hooks = HookRegistry()
+    root = ZushGroup("zush", zush_ctx=ZushCtx(), hook_registry=hooks)
+    demo = click.Group("demo")
+    seen: list[tuple[str, str | None]] = []
+
+    def delivery(name: str, count: str | None = None) -> None:
+        """Capture one legacy inline cron invocation for compatibility assertion."""
+        seen.append((name, count))
+
+    demo.add_command(click.Command("delivery", callback=delivery), "delivery")
+    root.add_command(demo, "demo")
+    write_cron_registry(
+        {
+            "jobs": {
+                "legacy": {
+                    "schedule": "* * * * *",
+                    "command": "demo.delivery",
+                    "args": ["alpha"],
+                    "kwargs": {"count": "2"},
+                    "detach": False,
+                    "last_run_at": None,
+                }
+            }
+        },
+        storage,
+    )
+
+    invoke_cron_job(root, storage, "legacy")
+
+    assert seen == [("alpha", "2")]
 
 
 def test_spawn_detached_cron_job_uses_detached_subprocess_contract(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -296,7 +356,7 @@ def test_spawn_detached_cron_job_uses_detached_subprocess_contract(tmp_path: Pat
     assert isinstance(command, list)
     assert command[0] == sys.executable
     assert command[1] == "-c"
-    assert command[-2:] == [str(storage.config_dir()), "nightly"]
+    assert command[-3:] == [str(storage.config_dir()), "job", "nightly"]
     assert isinstance(kwargs, dict)
     assert kwargs["cwd"] == str(storage.config_dir())
     assert isinstance(kwargs["env"], dict)

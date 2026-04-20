@@ -106,5 +106,59 @@
       "target_ids": "220bb"
     },
     "custom": {}
+  },
+  "2ad4f": {
+    "id": "2ad4f",
+    "group": "notes",
+    "node_type": "note",
+    "summary": "Extended integration coverage with mock plugin jobs now exercises real execution and persistence, plus detached dry-run reporting without side effects, in tests/test_cron_start_integration.py.",
+    "status": "active",
+    "tags": [],
+    "source": null,
+    "content": "Extended integration coverage with mock plugin jobs now exercises real execution and persistence, plus detached dry-run reporting without side effects, in tests/test_cron_start_integration.py.",
+    "created_at": "2026-04-20T02:24:01Z",
+    "updated_at": "2026-04-20T02:24:01Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "copilot",
+      "target_ids": "29e77"
+    },
+    "custom": {}
+  },
+  "2cf1a": {
+    "id": "2cf1a",
+    "group": "notes",
+    "node_type": "note",
+    "summary": "Single-day completion now supports a per-entry day-change boundary instead of assuming midnight. The self cron add surface accepts --day-change HH:MM with --single-day-complete for both jobs and lifejobs, stores the normalized boundary on the entry, and computes the ledger date by shifting the effective day boundary before writing or checking cron_completion.jsonl.",
+    "status": "active",
+    "tags": [],
+    "source": null,
+    "content": "Single-day completion now supports a per-entry day-change boundary instead of assuming midnight. The self cron add surface accepts --day-change HH:MM with --single-day-complete for both jobs and lifejobs, stores the normalized boundary on the entry, and computes the ledger date by shifting the effective day boundary before writing or checking cron_completion.jsonl.",
+    "created_at": "2026-04-20T04:17:12Z",
+    "updated_at": "2026-04-20T04:17:12Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "copilot",
+      "target_ids": "2b90c"
+    },
+    "custom": {}
+  },
+  "2d5c2": {
+    "id": "2d5c2",
+    "group": "notes",
+    "node_type": "note",
+    "summary": "Cron discoverability was also tightened after the single-day completion work. The README now documents the full self cron surface, including register/add, lifejobs, detach inheritance, --single-day-complete, and --day-change HH:MM examples, while self cron help and subcommand help explicitly surface --scale, --mocktime, --dry-run, and the day-change option so users do not have to infer them from tests or source.",
+    "status": "active",
+    "tags": [],
+    "source": null,
+    "content": "Cron discoverability was also tightened after the single-day completion work. The README now documents the full self cron surface, including register/add, lifejobs, detach inheritance, --single-day-complete, and --day-change HH:MM examples, while self cron help and subcommand help explicitly surface --scale, --mocktime, --dry-run, and the day-change option so users do not have to infer them from tests or source.",
+    "created_at": "2026-04-20T04:18:08Z",
+    "updated_at": "2026-04-20T04:18:08Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "copilot",
+      "target_ids": "2b90c"
+    },
+    "custom": {}
   }
 }

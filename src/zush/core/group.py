@@ -10,7 +10,17 @@ from typing import Any
 import click
 
 from zush.configparse.config import load_config, toggle_extension
-from zush.core.cron import add_cron_job, list_cron_jobs, remove_cron_job, start_cron_scheduler
+from zush.core.cron import (
+    add_cron_lifejob,
+    add_cron_job,
+    list_cron_jobs,
+    list_cron_lifejobs,
+    list_cron_registrations,
+    register_cron_command,
+    remove_cron_job,
+    unregister_cron_command,
+)
+from zush.core.cron_runtime import run_cron_scheduler
 from zush.core.context import HookRegistry, ZushCtx
 from zush.core.services import ServiceController
 from zush.core.storage import default_storage
@@ -132,20 +142,78 @@ def add_reserved_self_group(
         "cron",
         help="Manage scheduled zush commands stored in cron.json.",
     )
-    cron_add_cmd = click.Command(
-        "add",
-        callback=_cron_add_callback(root, storage or default_storage()),
+    cron_register_cmd = click.Command(
+        "register",
+        callback=_cron_register_callback(root, storage or default_storage()),
         params=[
-            click.Argument(["schedule"]),
+            click.Argument(["name"]),
             click.Argument(["command_path"]),
         ],
-        help="Add one cron job for a dotted command path.",
+        help=(
+            "Register one reusable cron command target. "
+            "Trailing tokens after COMMAND_PATH become command args; use key=value for kwargs."
+        ),
+        epilog="Append -d or --detach at the end to run matching jobs in a detached worker.",
         context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+    )
+    cron_add_cmd = click.Command(
+        "add",
+        callback=_cron_add_callback(storage or default_storage()),
+        params=[
+            click.Argument(["name"]),
+            click.Argument(["schedule"], required=False),
+            click.Option(
+                ["--lifejob", "lifejob_target"],
+                type=str,
+                default=None,
+                help="Create a delayed lifejob attached to the named cron job instead of storing a cron schedule.",
+            ),
+            click.Option(
+                ["--delay"],
+                type=int,
+                default=None,
+                help="Required with --lifejob; number of seconds to wait after the target job runs.",
+            ),
+            click.Option(
+                ["-sdc", "--single-day-complete"],
+                is_flag=True,
+                default=False,
+                help="Skip later same-day runs after this job or lifejob completes once and record it in cron_completion.jsonl.",
+            ),
+            click.Option(
+                ["--day-change"],
+                type=str,
+                default=None,
+                help="Optional HH:MM boundary for single-day-complete entries; times before it count toward the previous completion day.",
+            ),
+        ],
+        help="Add one cron schedule or delayed lifejob for a registered command.",
     )
     cron_start_cmd = click.Command(
         "start",
         callback=_cron_start_callback(root, storage or default_storage()),
+        params=[
+            click.Option(
+                ["--scale"],
+                type=float,
+                default=1.0,
+                help="Advance simulated scheduler time by this multiplier relative to wall-clock sleep intervals.",
+            ),
+            click.Option(
+                ["--mocktime"],
+                type=str,
+                default=None,
+                help="Start the scheduler from a fixed ISO datetime such as 2026-04-17T10:15:00.",
+            ),
+            click.Option(
+                ["--dry-run"],
+                is_flag=True,
+                default=False,
+                help="Evaluate due jobs and lifejobs without executing commands or persisting cron state changes.",
+            ),
+        ],
         help="Start the foreground cron scheduler loop.",
+        short_help="Start scheduler with --scale, --mocktime, and --dry-run.",
     )
     cron_list_cmd = click.Command(
         "list",
@@ -158,9 +226,17 @@ def add_reserved_self_group(
         params=[click.Argument(["name"])],
         help="Remove one persisted cron job.",
     )
+    cron_unregister_cmd = click.Command(
+        "unregister",
+        callback=_cron_unregister_callback(storage or default_storage()),
+        params=[click.Argument(["name"])],
+        help="Remove one registered cron command.",
+    )
+    cron_group.add_command(cron_register_cmd, "register")
     cron_group.add_command(cron_add_cmd, "add")
     cron_group.add_command(cron_list_cmd, "list")
     cron_group.add_command(cron_remove_cmd, "remove")
+    cron_group.add_command(cron_unregister_cmd, "unregister")
     cron_group.add_command(cron_start_cmd, "start")
     self_group.add_command(map_cmd, "map")
     self_group.add_command(config_cmd, "config")
@@ -293,59 +369,87 @@ def _diagnostics_callback(diagnostics: list[DiscoveryDiagnostic]):
     return callback
 
 
-def _cron_add_callback(root: click.Group, storage: Any):
-    """Build the self cron add callback bound to one root group and storage target."""
-    def callback(schedule: str, command_path: str) -> None:
-        """Persist one cron job from a schedule, dotted command path, and trailing command tokens."""
-        raw_tokens, name, detach = _parse_cron_add_tokens(list(click.get_current_context().args))
-        job_name = add_cron_job(
+def _cron_register_callback(root: click.Group, storage: Any):
+    """Build the self cron register callback bound to one root group and storage target."""
+    def callback(name: str, command_path: str) -> None:
+        """Persist one reusable cron command registration from a dotted command path and trailing tokens."""
+        raw_tokens, detach = _parse_cron_register_tokens(list(click.get_current_context().args))
+        registration_name = register_cron_command(
             root,
             storage,
-            schedule=schedule,
+            name=name,
             command_path=command_path,
             raw_tokens=raw_tokens,
-            name=name,
             detach=detach,
         )
-        click.echo(f"added {job_name}")
+        click.echo(f"registered {registration_name}")
 
     return callback
 
 
-def _parse_cron_add_tokens(tokens: list[str]) -> tuple[list[str], str | None, bool]:
-    """Parse trailing self cron add tokens into command args plus optional name and detach flags."""
+def _parse_cron_register_tokens(tokens: list[str]) -> tuple[list[str], bool]:
+    """Parse trailing self cron register tokens into command args plus an optional detach flag."""
     remaining = list(tokens)
     detach = False
-    name: str | None = None
     while remaining:
         tail = remaining[-1]
         if tail in {"-d", "--detach"}:
             detach = True
             remaining.pop()
             continue
-        if len(remaining) >= 2 and remaining[-2] in {"--name", "-n"}:
-            name = tail
-            remaining = remaining[:-2]
-            continue
-        if tail.startswith("--name="):
-            name = tail.split("=", 1)[1]
-            remaining.pop()
-            continue
-        if tail.startswith("-n="):
-            name = tail.split("=", 1)[1]
-            remaining.pop()
-            continue
-        if tail in {"--name", "-n"}:
-            raise click.ClickException(f"{tail} requires a value")
         break
-    return remaining, name, detach
+    return remaining, detach
+
+
+def _cron_add_callback(storage: Any):
+    """Build the self cron add callback bound to one storage target."""
+    def callback(
+        name: str,
+        schedule: str | None,
+        lifejob_target: str | None,
+        delay: int | None,
+        single_day_complete: bool,
+        day_change: str | None,
+    ) -> None:
+        """Persist one cron schedule entry or delayed lifejob for a registered command name."""
+        if day_change is not None and not single_day_complete:
+            raise click.ClickException("--day-change requires --single-day-complete")
+        if lifejob_target is not None or delay is not None:
+            if schedule is not None:
+                raise click.ClickException("Do not pass a cron schedule when using --lifejob")
+            if not lifejob_target:
+                raise click.ClickException("--lifejob requires a target cron job name")
+            if delay is None:
+                raise click.ClickException("--delay is required when using --lifejob")
+            lifejob_name = add_cron_lifejob(
+                storage,
+                registration_name=name,
+                target_job_name=lifejob_target,
+                delay_seconds=delay,
+                single_day_complete=single_day_complete,
+                day_change=day_change,
+            )
+            click.echo(f"added {lifejob_name}")
+            return
+        if schedule is None:
+            raise click.ClickException("A cron schedule is required unless --lifejob is used")
+        job_name = add_cron_job(
+            storage,
+            registration_name=name,
+            schedule=schedule,
+            single_day_complete=single_day_complete,
+            day_change=day_change,
+        )
+        click.echo(f"added {job_name}")
+
+    return callback
 
 
 def _cron_start_callback(root: click.Group, storage: Any):
     """Build the self cron start callback bound to one root group and storage target."""
-    def callback() -> None:
-        """Start the foreground cron scheduler loop for the active command tree and storage."""
-        start_cron_scheduler(root, storage)
+    def callback(scale: float, mocktime: str | None, dry_run: bool) -> None:
+        """Start the cron scheduler loop with optional simulated time and dry-run controls."""
+        run_cron_scheduler(root, storage, scale=scale, mocktime=mocktime, dry_run=dry_run)
 
     return callback
 
@@ -353,17 +457,37 @@ def _cron_start_callback(root: click.Group, storage: Any):
 def _cron_list_callback(storage: Any):
     """Build the self cron list callback bound to one storage target."""
     def callback() -> None:
-        """Print persisted cron jobs from the active base cron registry."""
+        """Print persisted cron registrations and jobs from the active base cron registry."""
+        registrations = list_cron_registrations(storage)
         jobs = list_cron_jobs(storage)
-        if not jobs:
+        lifejobs = list_cron_lifejobs(storage)
+        if not registrations and not jobs and not lifejobs:
             click.echo("(none)")
             return
+        if registrations:
+            click.echo("[registrations]")
+            for name, registration in registrations:
+                command_path = str(registration.get("command") or "")
+                mode = "detached" if bool(registration.get("detach", False)) else "attached"
+                click.echo(f"{name} | {command_path} | {mode}")
+        if jobs:
+            click.echo("[jobs]")
         for name, job in jobs:
             schedule = str(job.get("schedule") or "")
-            command_path = str(job.get("command") or "")
-            mode = "detached" if bool(job.get("detach", False)) else "attached"
+            target_name = str(job.get("target") or job.get("command") or "")
             last_run = str(job.get("last_run_at") or "never")
-            click.echo(f"{name} | {schedule} | {command_path} | {mode} | {last_run}")
+            click.echo(f"{name} | {schedule} | {target_name} | {last_run}")
+        if lifejobs:
+            click.echo("[lifejobs]")
+            for name, lifejob in lifejobs:
+                target_name = str(lifejob.get("target") or "")
+                target_job_name = str(lifejob.get("target_job") or "")
+                delay_seconds = str(lifejob.get("delay_seconds") or 0)
+                pending_due_at = str(lifejob.get("pending_due_at") or "never")
+                last_run = str(lifejob.get("last_run_at") or "never")
+                click.echo(
+                    f"{name} | {target_name} | {target_job_name} | {delay_seconds} | {pending_due_at} | {last_run}"
+                )
 
     return callback
 
@@ -374,5 +498,15 @@ def _cron_remove_callback(storage: Any):
         """Delete one persisted cron job by name from the active base cron registry."""
         remove_cron_job(storage, name)
         click.echo(f"removed {name}")
+
+    return callback
+
+
+def _cron_unregister_callback(storage: Any):
+    """Build the self cron unregister callback bound to one storage target."""
+    def callback(name: str) -> None:
+        """Delete one persisted cron registration by name from the active base cron registry."""
+        unregister_cron_command(storage, name)
+        click.echo(f"unregistered {name}")
 
     return callback
