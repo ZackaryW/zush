@@ -45,15 +45,12 @@ def test_self_cron_add_lifejob_persists_delayed_follower(tmp_path: Path) -> None
     assert result.exit_code == 0, (result.output, repr(result.exception))
     assert "lifejob-1" in result.output
     payload = json.loads((storage.config_dir() / "cron.json").read_text(encoding="utf-8"))
-    assert payload["lifejobs"] == {
-        "lifejob-1": {
-            "target": "cleanup-task",
-            "target_job": "cron-1",
-            "delay_seconds": 30,
-            "pending_due_at": None,
-            "last_run_at": None,
-        }
-    }
+    assert payload["lifejobs"]["lifejob-1"]["target"] == "cleanup-task"
+    assert payload["lifejobs"]["lifejob-1"]["target_job"] == "cron-1"
+    assert payload["lifejobs"]["lifejob-1"]["delay_seconds"] == 30
+    assert payload["lifejobs"]["lifejob-1"]["pending_due_at"] is None
+    assert payload["lifejobs"]["lifejob-1"]["last_run_at"] is None
+    assert isinstance(payload["lifejobs"]["lifejob-1"]["created_at"], str)
 
 
 def test_self_cron_list_prints_lifejobs_section(tmp_path: Path) -> None:
@@ -172,15 +169,13 @@ def test_self_cron_add_allows_schedule_and_lifejob_in_one_call(tmp_path: Path) -
 
     assert result.exit_code == 0, (result.output, repr(result.exception))
     payload = json.loads((storage.config_dir() / "cron.json").read_text(encoding="utf-8"))
-    assert payload["jobs"]["cron-2"] == {
-        "schedule": "*/10 * * * *",
-        "target": "cleanup-task",
-        "last_run_at": None,
-    }
-    assert payload["lifejobs"]["lifejob-1"] == {
-        "target": "cleanup-task",
-        "target_job": "cron-1",
-        "delay_seconds": 30,
-        "pending_due_at": None,
-        "last_run_at": None,
-    }
+    assert payload["jobs"]["cron-2"]["schedule"] == "*/10 * * * *"
+    assert payload["jobs"]["cron-2"]["target"] == "cleanup-task"
+    assert payload["jobs"]["cron-2"]["last_run_at"] is None
+    assert isinstance(payload["jobs"]["cron-2"]["created_at"], str)
+    assert payload["lifejobs"]["lifejob-1"]["target"] == "cleanup-task"
+    assert payload["lifejobs"]["lifejob-1"]["target_job"] == "cron-1"
+    assert payload["lifejobs"]["lifejob-1"]["delay_seconds"] == 30
+    assert payload["lifejobs"]["lifejob-1"]["pending_due_at"] is None
+    assert payload["lifejobs"]["lifejob-1"]["last_run_at"] is None
+    assert isinstance(payload["lifejobs"]["lifejob-1"]["created_at"], str)

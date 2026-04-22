@@ -35,5 +35,42 @@
       "commit_hash": "working-tree"
     },
     "custom": {}
+  },
+  "3a61f": {
+    "id": "3a61f",
+    "group": "code_history",
+    "node_type": "function_change",
+    "summary": "process_due_cron_registry catch-up replay",
+    "status": "active",
+    "tags": [],
+    "source": "src/zush/cron/execution.py",
+    "content": null,
+    "created_at": "2026-04-22T03:31:53Z",
+    "updated_at": "2026-04-22T03:31:53Z",
+    "expires_at": null,
+    "metadata": {
+      "commit_hash": "working-tree",
+      "function_name": "process_due_cron_registry",
+      "affected_callsites": "zush.cron.runtime.run_cron_scheduler,zush.cron.execution.run_due_cron_jobs"
+    },
+    "custom": {}
+  },
+  "3cf46": {
+    "id": "3cf46",
+    "group": "code_history",
+    "node_type": "file_change",
+    "summary": "Cron state persistence reliability refactor",
+    "status": "active",
+    "tags": [],
+    "source": "src/zush/cron/plugin_sync.py",
+    "content": null,
+    "created_at": "2026-04-22T04:03:19Z",
+    "updated_at": "2026-04-22T04:03:19Z",
+    "expires_at": null,
+    "metadata": {
+      "significance": "refactor",
+      "commit_hash": "working-tree"
+    },
+    "custom": {}
   }
 }

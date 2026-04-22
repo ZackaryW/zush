@@ -472,5 +472,42 @@
       "source_ref": "src/zush/cron/plugin_sync.py"
     },
     "custom": {}
+  },
+  "39402": {
+    "id": "39402",
+    "group": "decision_trail",
+    "node_type": "decision",
+    "summary": "Cron scheduler always catches up missed runs",
+    "status": "active",
+    "tags": [],
+    "source": "src/zush/cron/execution.py",
+    "content": null,
+    "created_at": "2026-04-22T03:31:53Z",
+    "updated_at": "2026-04-22T03:31:53Z",
+    "expires_at": null,
+    "metadata": {
+      "commit_hash": "working-tree",
+      "alternatives_considered": "optional catch-up policy",
+      "tradeoffs": "may replay multiple missed executions after downtime"
+    },
+    "custom": {}
+  },
+  "3b9ea": {
+    "id": "3b9ea",
+    "group": "decision_trail",
+    "node_type": "research_finding",
+    "summary": "Cron first-run catch-up now anchored by created_at",
+    "status": "active",
+    "tags": [],
+    "source": "src/zush/cron/execution.py",
+    "content": "Cron jobs and lifejobs now persist created_at metadata so first-run catch-up can replay missed occurrences after creation even when last_run_at is still null. Plugin reinforce sync also preserves runtime state fields such as last_run_at, pending_due_at, and created_at for matching namespaced entries.",
+    "created_at": "2026-04-22T04:03:19Z",
+    "updated_at": "2026-04-22T04:03:19Z",
+    "expires_at": null,
+    "metadata": {
+      "outcome": "adopted",
+      "source_ref": "src/zush/cron/registry.py"
+    },
+    "custom": {}
   }
 }

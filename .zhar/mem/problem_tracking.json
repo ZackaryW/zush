@@ -82,5 +82,25 @@
       "issue_type": "debt"
     },
     "custom": {}
+  },
+  "3e392": {
+    "id": "3e392",
+    "group": "problem_tracking",
+    "node_type": "known_issue",
+    "summary": "Detached cron execution lacks delivery feedback",
+    "status": "active",
+    "tags": [],
+    "source": "src/zush/cron/execution.py",
+    "content": "Detached cron and lifejob dispatch marks scheduler state as dispatched after spawning the subprocess, but runtime failures inside the detached child are not fed back into cron state or diagnostics. This leaves a reliability gap compared to in-process execution because spawn success is observable while child execution success is not.",
+    "created_at": "2026-04-22T04:05:13Z",
+    "updated_at": "2026-04-22T04:05:13Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot",
+      "severity": "med",
+      "issue_type": "design",
+      "commit_hash": "working-tree"
+    },
+    "custom": {}
   }
 }

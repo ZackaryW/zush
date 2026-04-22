@@ -524,24 +524,19 @@ ZushPlugin = plugin
     assert "cron-1" in add_result.output
     cron_path = storage.config_dir() / "cron.json"
     payload = json.loads(cron_path.read_text(encoding="utf-8"))
-    assert payload == {
-        "registrations": {
-            "demo-task": {
-                "command": "demo.run",
-                "args": ["alpha"],
-                "kwargs": {"count": "2"},
-                "detach": False,
-            }
-        },
-        "jobs": {
-            "cron-1": {
-                "schedule": "*/5 * * * *",
-                "target": "demo-task",
-                "last_run_at": None,
-            }
-        },
-        "lifejobs": {},
+    assert payload["registrations"] == {
+        "demo-task": {
+            "command": "demo.run",
+            "args": ["alpha"],
+            "kwargs": {"count": "2"},
+            "detach": False,
+        }
     }
+    assert payload["jobs"]["cron-1"]["schedule"] == "*/5 * * * *"
+    assert payload["jobs"]["cron-1"]["target"] == "demo-task"
+    assert payload["jobs"]["cron-1"]["last_run_at"] is None
+    assert isinstance(payload["jobs"]["cron-1"]["created_at"], str)
+    assert payload["lifejobs"] == {}
 
 
 def test_self_cron_register_accepts_trailing_detach_option(tmp_path: Path) -> None:
@@ -626,10 +621,14 @@ ZushPlugin = plugin
     assert first_add.exit_code == 0, (first_add.output, repr(first_add.exception))
     assert second_add.exit_code == 0, (second_add.output, repr(second_add.exception))
     payload = json.loads((storage.config_dir() / "cron.json").read_text(encoding="utf-8"))
-    assert payload["jobs"] == {
-        "cron-1": {"schedule": "0 0 * * *", "target": "shared-task", "last_run_at": None},
-        "cron-2": {"schedule": "30 12 * * 1", "target": "shared-task", "last_run_at": None},
-    }
+    assert payload["jobs"]["cron-1"]["schedule"] == "0 0 * * *"
+    assert payload["jobs"]["cron-1"]["target"] == "shared-task"
+    assert payload["jobs"]["cron-1"]["last_run_at"] is None
+    assert isinstance(payload["jobs"]["cron-1"]["created_at"], str)
+    assert payload["jobs"]["cron-2"]["schedule"] == "30 12 * * 1"
+    assert payload["jobs"]["cron-2"]["target"] == "shared-task"
+    assert payload["jobs"]["cron-2"]["last_run_at"] is None
+    assert isinstance(payload["jobs"]["cron-2"]["created_at"], str)
 
 
 def test_self_cron_start_delegates_to_scheduler(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

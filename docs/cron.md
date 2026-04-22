@@ -90,6 +90,8 @@ zush self cron start --scale 60 --mocktime 2026-04-17T10:15:00 --dry-run
 - --mocktime sets an initial simulated time
 - --dry-run evaluates due entries without executing or persisting state
 
+Catch-up behavior is always enabled. If the scheduler was not running and scheduled occurrences were missed, zush replays the missed cron occurrences on the next scheduler tick.
+
 ## Plugin Cron Registration
 
 Plugins can declare cron namespaces and entries that are synced on plugin load.

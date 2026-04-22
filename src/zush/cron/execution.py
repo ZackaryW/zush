@@ -54,7 +54,6 @@ def process_due_cron_registry(
     dry_run: bool = False,
 ) -> tuple[bool, list[str]]:
     """Process one in-memory cron registry snapshot for the given time and optionally skip execution."""
-    current_slot = current_time.replace(second=0, microsecond=0).strftime("%Y-%m-%dT%H:%M")
     jobs = data.get("jobs")
     if not isinstance(jobs, dict):
         jobs = {}
@@ -67,37 +66,40 @@ def process_due_cron_registry(
         last_run_at = job.get("last_run_at")
         if not isinstance(schedule, str) or not schedule:
             continue
-        if last_run_at == current_slot:
-            continue
-        try:
-            should_run = bool(croniter.match(schedule, current_time))
-        except (ValueError, KeyError):
-            continue
-        if not should_run:
+        due_times = _collect_due_job_times(
+            schedule,
+            last_run_at,
+            job.get("created_at"),
+            current_time,
+        )
+        if not due_times:
             continue
         try:
             _, registration = resolve_cron_registration(data, name, job)
         except click.ClickException:
             continue
         day_change = str(job.get("day_change")) if isinstance(job.get("day_change"), str) else None
-        if bool(job.get("single_day_complete", False)) and has_single_day_completion(
-            storage,
-            name,
-            current_time,
-            day_change,
-        ):
-            continue
-        if dry_run:
-            events.append(_describe_dispatch("job", name, registration, current_time))
-        elif bool(registration.get("detach", False)):
-            spawn_detached_cron_job(storage, name)
-        else:
-            invoke_cron_job(root, storage, name)
-        if bool(job.get("single_day_complete", False)) and not dry_run:
-            mark_single_day_completion(storage, name, current_time, day_change)
-        job["last_run_at"] = current_slot
-        _schedule_attached_lifejobs(data, target_job_name=name, current_time=current_time)
-        changed = True
+        for due_time in due_times:
+            if bool(job.get("single_day_complete", False)) and has_single_day_completion(
+                storage,
+                name,
+                due_time,
+                day_change,
+            ):
+                job["last_run_at"] = due_time.strftime("%Y-%m-%dT%H:%M")
+                changed = True
+                continue
+            if dry_run:
+                events.append(_describe_dispatch("job", name, registration, due_time))
+            elif bool(registration.get("detach", False)):
+                spawn_detached_cron_job(storage, name)
+            else:
+                invoke_cron_job(root, storage, name)
+            if bool(job.get("single_day_complete", False)) and not dry_run:
+                mark_single_day_completion(storage, name, due_time, day_change)
+            job["last_run_at"] = due_time.strftime("%Y-%m-%dT%H:%M")
+            _schedule_attached_lifejobs(data, target_job_name=name, current_time=due_time)
+            changed = True
     lifejob_changed, lifejob_events = _run_due_lifejobs(
         root,
         storage,
@@ -109,6 +111,38 @@ def process_due_cron_registry(
         changed = True
     events.extend(lifejob_events)
     return changed, events
+
+
+def _collect_due_job_times(
+    schedule: str,
+    last_run_at: Any,
+    created_at: Any,
+    current_time: datetime,
+) -> list[datetime]:
+    """Return all due occurrences between last run and current time for mandatory catch-up dispatch."""
+    try:
+        if isinstance(last_run_at, str) and last_run_at:
+            return _collect_due_times_since(schedule, datetime.strptime(last_run_at, "%Y-%m-%dT%H:%M"), current_time)
+        if isinstance(created_at, str) and created_at:
+            created_time = datetime.fromisoformat(created_at)
+            return _collect_due_times_since(schedule, created_time, current_time)
+        if croniter.match(schedule, current_time):
+            return [current_time]
+    except (ValueError, KeyError):
+        return []
+    return []
+
+
+def _collect_due_times_since(schedule: str, anchor_time: datetime, current_time: datetime) -> list[datetime]:
+    """Return all due times strictly after the anchor and up to the current scheduler time."""
+    iterator = croniter(schedule, anchor_time)
+    due_times: list[datetime] = []
+    while True:
+        next_due = iterator.get_next(datetime)
+        if next_due > current_time:
+            break
+        due_times.append(next_due)
+    return due_times
 
 
 def invoke_cron_job(root: click.Group, storage: ZushStorage, job_name: str) -> None:

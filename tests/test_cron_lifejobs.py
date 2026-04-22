@@ -90,7 +90,7 @@ ZushPlugin = plugin
 
 
 def test_run_due_cron_jobs_reschedules_pending_lifejob_to_latest_target_run(tmp_path: Path) -> None:
-    """run_due_cron_jobs should overwrite an older pending lifejob when the target job runs again first."""
+    """run_due_cron_jobs should replay missed parent runs and keep lifejob pending at the latest target-based due time."""
     env_root = tmp_path / "env"
     env_root.mkdir()
     target_file = tmp_path / "result.txt"
@@ -159,10 +159,11 @@ ZushPlugin = plugin
     run_due_cron_jobs(group, storage, now=datetime(2026, 4, 17, 10, 21, 0))
     run_due_cron_jobs(group, storage, now=datetime(2026, 4, 17, 10, 26, 40))
 
-    assert target_file.read_text(encoding="utf-8") == "main\nmain\ncleanup\n"
+    assert target_file.read_text(encoding="utf-8") == "main\nmain\nmain\n"
     payload = json.loads((storage.config_dir() / "cron.json").read_text(encoding="utf-8"))
-    assert payload["lifejobs"]["lifejob-1"]["last_run_at"] == "2026-04-17T10:26:40"
-    assert payload["lifejobs"]["lifejob-1"]["pending_due_at"] is None
+    assert payload["jobs"]["cron-1"]["last_run_at"] == "2026-04-17T10:25"
+    assert payload["lifejobs"]["lifejob-1"]["last_run_at"] is None
+    assert payload["lifejobs"]["lifejob-1"]["pending_due_at"] == "2026-04-17T10:31:40"
 
 
 def test_run_due_cron_jobs_rejects_invalid_lifejob_target_without_dispatch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

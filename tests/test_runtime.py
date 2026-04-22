@@ -380,3 +380,67 @@ ZushPlugin = p
     assert second_payload["registrations"] == {}
     assert second_payload["jobs"] == {}
     assert second_payload["lifejobs"] == {}
+
+
+def test_create_zush_group_plugin_cron_reinforce_preserves_runtime_state(tmp_path) -> None:
+        """Plugin reinforce sync should preserve existing last_run and pending lifejob runtime state for matching names."""
+        env_root = tmp_path / "env"
+        env_root.mkdir()
+        pkg = env_root / "zush_provider"
+        pkg.mkdir()
+        (pkg / "__zush__.py").write_text(
+                """
+from zush.pluginloader.plugin import Plugin
+
+p = Plugin()
+p.group("demo").command("run", callback=lambda: None)
+p.group("demo").command("cleanup", callback=lambda: None)
+p.cron_namespace("ops", register_mode="reinforce")
+p.cron_register("main", "demo.run")
+p.cron_job("hourly", registration="main", schedule="0 * * * *")
+p.cron_register("cleanup", "demo.cleanup")
+p.cron_lifejob("followup", registration="cleanup", target_job="hourly", delay_seconds=45)
+ZushPlugin = p
+""",
+                encoding="utf-8",
+        )
+        storage = DirectoryStorage(tmp_path / "data")
+        storage.config_dir().mkdir(parents=True, exist_ok=True)
+        (storage.config_dir() / "cron.json").write_text(
+                """
+{
+    "registrations": {
+        "ops.main": {"command": "demo.run", "args": [], "kwargs": {}, "detach": false},
+        "ops.cleanup": {"command": "demo.cleanup", "args": [], "kwargs": {}, "detach": false}
+    },
+    "jobs": {
+        "ops.hourly": {
+            "schedule": "0 * * * *",
+            "target": "ops.main",
+            "last_run_at": "2026-04-17T10:00",
+            "created_at": "2026-04-17T09:00:00"
+        }
+    },
+    "lifejobs": {
+        "ops.followup": {
+            "target": "ops.cleanup",
+            "target_job": "ops.hourly",
+            "delay_seconds": 45,
+            "pending_due_at": "2026-04-17T11:00:45",
+            "last_run_at": "2026-04-17T10:00:45",
+            "created_at": "2026-04-17T09:00:00"
+        }
+    }
+}
+""".strip(),
+                encoding="utf-8",
+        )
+
+        create_zush_group(config=Config(envs=[env_root], env_prefix=["zush_"]), storage=storage)
+
+        payload = __import__("json").loads((storage.config_dir() / "cron.json").read_text(encoding="utf-8"))
+        assert payload["jobs"]["ops.hourly"]["last_run_at"] == "2026-04-17T10:00"
+        assert payload["jobs"]["ops.hourly"]["created_at"] == "2026-04-17T09:00:00"
+        assert payload["lifejobs"]["ops.followup"]["pending_due_at"] == "2026-04-17T11:00:45"
+        assert payload["lifejobs"]["ops.followup"]["last_run_at"] == "2026-04-17T10:00:45"
+        assert payload["lifejobs"]["ops.followup"]["created_at"] == "2026-04-17T09:00:00"

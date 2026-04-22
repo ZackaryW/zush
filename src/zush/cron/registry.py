@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -18,6 +19,11 @@ if TYPE_CHECKING:
 def cron_file(storage: ZushStorage) -> Path:
     """Return the base-folder cron registry path for the active storage target."""
     return storage.config_dir() / "cron.json"
+
+
+def cron_created_at() -> str:
+    """Return a stable ISO timestamp for newly created cron jobs and lifejobs."""
+    return datetime.now().replace(microsecond=0).isoformat(timespec="seconds")
 
 
 def empty_cron_registry() -> dict[str, Any]:
@@ -227,6 +233,7 @@ def add_cron_lifejob(
         "delay_seconds": int(delay_seconds),
         "pending_due_at": None,
         "last_run_at": None,
+        "created_at": cron_created_at(),
     }
     if single_day_complete:
         lifejob_payload["single_day_complete"] = True
@@ -263,6 +270,7 @@ def add_cron_job(
         "schedule": schedule,
         "target": registration_name,
         "last_run_at": None,
+        "created_at": cron_created_at(),
     }
     if single_day_complete:
         job_payload["single_day_complete"] = True

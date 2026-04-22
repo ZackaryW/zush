@@ -242,6 +242,93 @@ def test_run_due_cron_jobs_ignores_invalid_schedule_without_dispatch(tmp_path: P
     assert payload["jobs"]["broken"]["last_run_at"] is None
 
 
+def test_run_due_cron_jobs_catches_up_missed_occurrences_since_last_run(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """run_due_cron_jobs should replay every missed due occurrence after last_run_at before current time."""
+    storage = DirectoryStorage(tmp_path / "data")
+    group = create_zush_group(config=Config(envs=[], env_prefix=["zush_"]), storage=storage)
+    write_cron_registry(
+        {
+            "registrations": {
+                "catchup-target": {
+                    "command": "self.map",
+                    "args": [],
+                    "kwargs": {},
+                    "detach": False,
+                }
+            },
+            "jobs": {
+                "catchup": {
+                    "schedule": "*/5 * * * *",
+                    "target": "catchup-target",
+                    "last_run_at": "2026-04-17T10:15",
+                }
+            },
+            "lifejobs": {},
+        },
+        storage,
+    )
+    seen: list[str] = []
+
+    def fake_invoke(_root: click.Group, _storage: DirectoryStorage, job_name: str) -> None:
+        """Capture each catch-up invocation so the test can assert missed schedules are replayed."""
+        seen.append(job_name)
+
+    monkeypatch.setattr("zush.cron.execution.invoke_cron_job", fake_invoke)
+
+    run_due_cron_jobs(group, storage, now=datetime(2026, 4, 17, 10, 26))
+
+    assert seen == ["catchup", "catchup"]
+    payload = json.loads((storage.config_dir() / "cron.json").read_text(encoding="utf-8"))
+    assert payload["jobs"]["catchup"]["last_run_at"] == "2026-04-17T10:25"
+
+
+def test_run_due_cron_jobs_catches_up_first_run_from_created_at(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """run_due_cron_jobs should replay a missed first occurrence when created_at predates the due slot."""
+    storage = DirectoryStorage(tmp_path / "data")
+    group = create_zush_group(config=Config(envs=[], env_prefix=["zush_"]), storage=storage)
+    write_cron_registry(
+        {
+            "registrations": {
+                "first-target": {
+                    "command": "self.map",
+                    "args": [],
+                    "kwargs": {},
+                    "detach": False,
+                }
+            },
+            "jobs": {
+                "first-run": {
+                    "schedule": "16 10 * * *",
+                    "target": "first-target",
+                    "last_run_at": None,
+                    "created_at": "2026-04-17T10:15:00",
+                }
+            },
+            "lifejobs": {},
+        },
+        storage,
+    )
+    seen: list[str] = []
+
+    def fake_invoke(_root: click.Group, _storage: DirectoryStorage, job_name: str) -> None:
+        """Capture first-run catch-up invocation for direct assertion."""
+        seen.append(job_name)
+
+    monkeypatch.setattr("zush.cron.execution.invoke_cron_job", fake_invoke)
+
+    run_due_cron_jobs(group, storage, now=datetime(2026, 4, 17, 10, 17, 0))
+
+    assert seen == ["first-run"]
+    payload = json.loads((storage.config_dir() / "cron.json").read_text(encoding="utf-8"))
+    assert payload["jobs"]["first-run"]["last_run_at"] == "2026-04-17T10:16"
+
+
 def test_split_cli_tokens_preserves_args_and_delivers_key_values() -> None:
     """split_cli_tokens should preserve ordinary args while extracting the key=value delivery surface."""
     args, kwargs = split_cli_tokens([

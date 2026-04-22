@@ -171,5 +171,22 @@
     "expires_at": null,
     "metadata": {},
     "custom": {}
+  },
+  "3d2e4": {
+    "id": "3d2e4",
+    "group": "architecture_context",
+    "node_type": "architecture",
+    "summary": "Cron runtime state is creation-anchored and reinforce-stable",
+    "status": "active",
+    "tags": [],
+    "source": "src/zush/cron/execution.py",
+    "content": "Cron jobs and lifejobs now persist created_at metadata so first-run catch-up can replay missed occurrences using creation time as the initial lower bound when last_run_at is still null. Plugin reinforce sync preserves matching namespaced runtime state such as last_run_at, pending_due_at, and created_at instead of resetting live scheduler state on boot.",
+    "created_at": "2026-04-22T04:05:13Z",
+    "updated_at": "2026-04-22T04:05:13Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "GitHubCopilot"
+    },
+    "custom": {}
   }
 }

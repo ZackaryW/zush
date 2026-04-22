@@ -10,7 +10,7 @@ import click
 from croniter import croniter
 
 from zush.cron.completion import normalize_day_change
-from zush.cron.registry import read_cron_registry, resolve_command_target, write_cron_registry
+from zush.cron.registry import cron_created_at, read_cron_registry, resolve_command_target, write_cron_registry
 from zush.discovery_provider import DiscoveryDiagnostic
 
 if TYPE_CHECKING:
@@ -96,10 +96,11 @@ def sync_plugin_cron_registry(
             }
             continue
         try:
+            preserved_state = _snapshot_namespace_runtime_state(data, namespace)
             if register_mode == "reinforce":
                 _remove_namespace_entries(data, namespace)
                 changed = True
-            _apply_plugin_cron_spec(root, data, spec)
+            _apply_plugin_cron_spec(root, data, spec, preserved_state=preserved_state)
             changed = True
             state_plugins[plugin_name] = {
                 "namespace": namespace,
@@ -203,7 +204,31 @@ def _namespaced_name(namespace: str, name: str) -> str:
     return f"{namespace}.{name}"
 
 
-def _apply_plugin_cron_spec(root: click.Group, data: dict[str, Any], spec: dict[str, Any]) -> None:
+def _snapshot_namespace_runtime_state(data: dict[str, Any], namespace: str) -> dict[str, dict[str, dict[str, Any]]]:
+    """Capture existing namespaced job and lifejob runtime state before a reinforce rewrite."""
+    prefix = f"{namespace}."
+    jobs = data.get("jobs")
+    lifejobs = data.get("lifejobs")
+    job_state = {
+        name: dict(job)
+        for name, job in (jobs.items() if isinstance(jobs, dict) else [])
+        if isinstance(name, str) and name.startswith(prefix) and isinstance(job, dict)
+    }
+    lifejob_state = {
+        name: dict(lifejob)
+        for name, lifejob in (lifejobs.items() if isinstance(lifejobs, dict) else [])
+        if isinstance(name, str) and name.startswith(prefix) and isinstance(lifejob, dict)
+    }
+    return {"jobs": job_state, "lifejobs": lifejob_state}
+
+
+def _apply_plugin_cron_spec(
+    root: click.Group,
+    data: dict[str, Any],
+    spec: dict[str, Any],
+    *,
+    preserved_state: dict[str, dict[str, dict[str, Any]]] | None = None,
+) -> None:
     """Apply one plugin cron declaration set into the in-memory cron registry."""
     namespace = str(spec["namespace"])
     registrations = data.setdefault("registrations", {})
@@ -211,6 +236,8 @@ def _apply_plugin_cron_spec(root: click.Group, data: dict[str, Any], spec: dict[
     lifejobs = data.setdefault("lifejobs", {})
     if not isinstance(registrations, dict) or not isinstance(jobs, dict) or not isinstance(lifejobs, dict):
         raise click.ClickException("Cron registry is malformed")
+    preserved_jobs = preserved_state.get("jobs", {}) if isinstance(preserved_state, dict) else {}
+    preserved_lifejobs = preserved_state.get("lifejobs", {}) if isinstance(preserved_state, dict) else {}
 
     for item in spec["registrations"]:
         if not isinstance(item, dict):
@@ -236,17 +263,20 @@ def _apply_plugin_cron_spec(root: click.Group, data: dict[str, Any], spec: dict[
         if not isinstance(name, str) or not isinstance(schedule, str) or not isinstance(registration, str):
             continue
         croniter(schedule)
+        qualified_name = _namespaced_name(namespace, name)
+        previous_job = preserved_jobs.get(qualified_name, {})
         payload: dict[str, Any] = {
             "schedule": schedule,
             "target": _namespaced_name(namespace, registration),
-            "last_run_at": None,
+            "last_run_at": previous_job.get("last_run_at"),
+            "created_at": str(previous_job.get("created_at") or cron_created_at()),
         }
         if bool(item.get("single_day_complete", False)):
             payload["single_day_complete"] = True
         day_change = item.get("day_change")
         if isinstance(day_change, str):
             payload["day_change"] = normalize_day_change(day_change)
-        jobs[_namespaced_name(namespace, name)] = payload
+        jobs[qualified_name] = payload
 
     for item in spec["lifejobs"]:
         if not isinstance(item, dict):
@@ -264,16 +294,19 @@ def _apply_plugin_cron_spec(root: click.Group, data: dict[str, Any], spec: dict[
             continue
         if delay_seconds < 0:
             raise click.ClickException("Lifejob delay must be a non-negative integer")
+        qualified_name = _namespaced_name(namespace, name)
+        previous_lifejob = preserved_lifejobs.get(qualified_name, {})
         payload: dict[str, Any] = {
             "target": _namespaced_name(namespace, registration),
             "target_job": _namespaced_name(namespace, target_job),
             "delay_seconds": delay_seconds,
-            "pending_due_at": None,
-            "last_run_at": None,
+            "pending_due_at": previous_lifejob.get("pending_due_at"),
+            "last_run_at": previous_lifejob.get("last_run_at"),
+            "created_at": str(previous_lifejob.get("created_at") or cron_created_at()),
         }
         if bool(item.get("single_day_complete", False)):
             payload["single_day_complete"] = True
         day_change = item.get("day_change")
         if isinstance(day_change, str):
             payload["day_change"] = normalize_day_change(day_change)
-        lifejobs[_namespaced_name(namespace, name)] = payload
+        lifejobs[qualified_name] = payload
