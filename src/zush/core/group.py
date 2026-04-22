@@ -10,7 +10,7 @@ from typing import Any
 import click
 
 from zush.configparse.config import load_config, toggle_extension
-from zush.core.cron import (
+from zush.cron import (
     add_cron_lifejob,
     add_cron_job,
     list_cron_jobs,
@@ -20,7 +20,7 @@ from zush.core.cron import (
     remove_cron_job,
     unregister_cron_command,
 )
-from zush.core.cron_runtime import run_cron_scheduler
+from zush.cron.runtime import run_cron_scheduler
 from zush.core.context import HookRegistry, ZushCtx
 from zush.core.services import ServiceController
 from zush.core.storage import default_storage
@@ -414,9 +414,17 @@ def _cron_add_callback(storage: Any):
         """Persist one cron schedule entry or delayed lifejob for a registered command name."""
         if day_change is not None and not single_day_complete:
             raise click.ClickException("--day-change requires --single-day-complete")
+        created: list[str] = []
+        if schedule is not None:
+            job_name = add_cron_job(
+                storage,
+                registration_name=name,
+                schedule=schedule,
+                single_day_complete=single_day_complete,
+                day_change=day_change,
+            )
+            created.append(job_name)
         if lifejob_target is not None or delay is not None:
-            if schedule is not None:
-                raise click.ClickException("Do not pass a cron schedule when using --lifejob")
             if not lifejob_target:
                 raise click.ClickException("--lifejob requires a target cron job name")
             if delay is None:
@@ -429,18 +437,11 @@ def _cron_add_callback(storage: Any):
                 single_day_complete=single_day_complete,
                 day_change=day_change,
             )
-            click.echo(f"added {lifejob_name}")
-            return
-        if schedule is None:
+            created.append(lifejob_name)
+        if not created:
             raise click.ClickException("A cron schedule is required unless --lifejob is used")
-        job_name = add_cron_job(
-            storage,
-            registration_name=name,
-            schedule=schedule,
-            single_day_complete=single_day_complete,
-            day_change=day_change,
-        )
-        click.echo(f"added {job_name}")
+        for created_name in created:
+            click.echo(f"added {created_name}")
 
     return callback
 

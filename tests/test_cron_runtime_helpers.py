@@ -7,7 +7,7 @@ from datetime import datetime
 import click
 import pytest
 
-from zush.core.cron_runtime import CronSchedulerClock, parse_cron_mocktime
+from zush.cron.runtime import CronSchedulerClock, parse_cron_mocktime
 
 
 def test_parse_cron_mocktime_accepts_iso_datetime() -> None:

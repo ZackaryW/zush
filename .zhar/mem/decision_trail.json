@@ -435,5 +435,42 @@
       "source_ref": "cron-slice-2026-04-17"
     },
     "custom": {}
+  },
+  "303f9": {
+    "id": "303f9",
+    "group": "decision_trail",
+    "node_type": "decision",
+    "summary": "Remove core cron import compatibility",
+    "status": "active",
+    "tags": [],
+    "source": "src/zush/core/group.py",
+    "content": null,
+    "created_at": "2026-04-22T01:02:07Z",
+    "updated_at": "2026-04-22T01:02:07Z",
+    "expires_at": null,
+    "metadata": {
+      "commit_hash": "working-tree",
+      "alternatives_considered": "keep facades",
+      "tradeoffs": "breaking import path for external callers"
+    },
+    "custom": {}
+  },
+  "31a07": {
+    "id": "31a07",
+    "group": "decision_trail",
+    "node_type": "research_finding",
+    "summary": "Cron add+plugin onload namespace sync behavior",
+    "status": "active",
+    "tags": [],
+    "source": "src/zush/cron/plugin_sync.py",
+    "content": "Self cron add now allows schedule and lifejob creation in one call, and plugin cron namespace sync supports skip-on-conflict, once/reinforce registration modes, and unregister-on-remove cleanup with state tracked in cron_plugins.json.",
+    "created_at": "2026-04-22T01:02:42Z",
+    "updated_at": "2026-04-22T01:02:42Z",
+    "expires_at": null,
+    "metadata": {
+      "outcome": "adopted",
+      "source_ref": "src/zush/cron/plugin_sync.py"
+    },
+    "custom": {}
   }
 }

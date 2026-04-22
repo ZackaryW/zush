@@ -10,6 +10,7 @@ import click
 
 from zush.configparse.config import Config, load_config
 from zush.core.context import HookRegistry, ZushCtx
+from zush.cron import sync_plugin_cron_registry
 from zush.core.discovery import run_discovery
 from zush.core.group import ZushGroup, add_reserved_self_group, merge_commands_into_group
 from zush.core.runtime import g
@@ -57,6 +58,7 @@ def create_zush_group(
     _register_plugin_hooks(plugins, hook_registry, zush_ctx)
     cli = ZushGroup(name, zush_ctx=zush_ctx, hook_registry=hook_registry)
     merge_commands_into_group(cli, plugins, diagnostics=diagnostics)
+    diagnostics.extend(sync_plugin_cron_registry(cli, storage, plugins))
     add_reserved_self_group(
         cli,
         storage=storage,

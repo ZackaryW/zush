@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 
 import click
 
@@ -74,6 +74,10 @@ class Plugin:
         "_provided_globals",
         "_provided_factories",
         "_services",
+        "_cron_namespace_config",
+        "_cron_registrations",
+        "_cron_jobs",
+        "_cron_lifejobs",
         "_storage",
         "_runtime",
     )
@@ -85,6 +89,10 @@ class Plugin:
         self._provided_globals: dict[str, Any] = {}
         self._provided_factories: dict[str, ProviderFactorySpec] = {}
         self._services: dict[str, ServiceDefinition] = {}
+        self._cron_namespace_config: dict[str, str] | None = None
+        self._cron_registrations: list[dict[str, Any]] = []
+        self._cron_jobs: list[dict[str, Any]] = []
+        self._cron_lifejobs: list[dict[str, Any]] = []
         self._storage = None
         self._runtime: PluginRuntime | None = None
 
@@ -170,6 +178,110 @@ class Plugin:
             healthcheck=healthcheck,
             control=control,
             terminate_fallback=terminate_fallback,
+        )
+        return self
+
+    @property
+    def cron_namespace_config(self) -> dict[str, str] | None:
+        """Return plugin cron namespace behavior settings used by onload synchronization."""
+        return self._cron_namespace_config
+
+    @property
+    def cron_registrations(self) -> list[dict[str, Any]]:
+        """Return plugin-declared cron command registrations before namespacing resolution."""
+        return list(self._cron_registrations)
+
+    @property
+    def cron_jobs(self) -> list[dict[str, Any]]:
+        """Return plugin-declared cron jobs before namespacing resolution."""
+        return list(self._cron_jobs)
+
+    @property
+    def cron_lifejobs(self) -> list[dict[str, Any]]:
+        """Return plugin-declared cron lifejobs before namespacing resolution."""
+        return list(self._cron_lifejobs)
+
+    def cron_namespace(
+        self,
+        namespace: str,
+        *,
+        register_mode: Literal["once", "reinforce"] = "once",
+        on_conflict: Literal["skip"] = "skip",
+        on_remove: Literal["keep", "unregister"] = "keep",
+    ) -> Plugin:
+        """Configure plugin cron namespace behavior for onload registration and removal handling."""
+        normalized = namespace.strip()
+        if not normalized:
+            raise ValueError("Cron namespace must not be empty")
+        self._cron_namespace_config = {
+            "namespace": normalized,
+            "register_mode": register_mode,
+            "on_conflict": on_conflict,
+            "on_remove": on_remove,
+        }
+        return self
+
+    def cron_register(
+        self,
+        name: str,
+        command_path: str,
+        *args: str,
+        detach: bool = False,
+        **kwargs: str,
+    ) -> Plugin:
+        """Declare one cron registration for onload syncing under this plugin's configured namespace."""
+        self._cron_registrations.append(
+            {
+                "name": name,
+                "command": command_path,
+                "args": [str(value) for value in args],
+                "kwargs": {str(key): str(value) for key, value in kwargs.items()},
+                "detach": bool(detach),
+            }
+        )
+        return self
+
+    def cron_job(
+        self,
+        name: str,
+        *,
+        registration: str,
+        schedule: str,
+        single_day_complete: bool = False,
+        day_change: str | None = None,
+    ) -> Plugin:
+        """Declare one cron job bound to a plugin cron registration for onload syncing."""
+        self._cron_jobs.append(
+            {
+                "name": name,
+                "registration": registration,
+                "schedule": schedule,
+                "single_day_complete": bool(single_day_complete),
+                "day_change": day_change,
+            }
+        )
+        return self
+
+    def cron_lifejob(
+        self,
+        name: str,
+        *,
+        registration: str,
+        target_job: str,
+        delay_seconds: int,
+        single_day_complete: bool = False,
+        day_change: str | None = None,
+    ) -> Plugin:
+        """Declare one delayed lifejob bound to a plugin cron namespace for onload syncing."""
+        self._cron_lifejobs.append(
+            {
+                "name": name,
+                "registration": registration,
+                "target_job": target_job,
+                "delay_seconds": int(delay_seconds),
+                "single_day_complete": bool(single_day_complete),
+                "day_change": day_change,
+            }
         )
         return self
 

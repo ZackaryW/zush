@@ -137,3 +137,50 @@ def test_self_cron_remove_cascades_attached_lifejobs(tmp_path: Path) -> None:
     payload = json.loads((storage.config_dir() / "cron.json").read_text(encoding="utf-8"))
     assert payload["jobs"] == {}
     assert payload["lifejobs"] == {}
+
+
+def test_self_cron_add_allows_schedule_and_lifejob_in_one_call(tmp_path: Path) -> None:
+    """self cron add should persist both a schedule job and a delayed lifejob when both inputs are provided."""
+    storage = DirectoryStorage(tmp_path / "data")
+    storage.config_dir().mkdir(parents=True, exist_ok=True)
+    storage.config_file().write_text(
+        'envs = []\nenv_prefix = ["zush_"]\ninclude_current_env = false\n',
+        encoding="utf-8",
+    )
+    (storage.config_dir() / "cron.json").write_text(
+        json.dumps(
+            {
+                "registrations": {
+                    "main-task": {"command": "self.map", "args": [], "kwargs": {}, "detach": False},
+                    "cleanup-task": {"command": "self.diagnostics", "args": [], "kwargs": {}, "detach": False},
+                },
+                "jobs": {
+                    "cron-1": {"schedule": "*/5 * * * *", "target": "main-task", "last_run_at": None}
+                },
+                "lifejobs": {},
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    group = create_zush_group(storage=storage)
+
+    result = CliRunner().invoke(
+        group,
+        ["self", "cron", "add", "cleanup-task", "*/10 * * * *", "--lifejob", "cron-1", "--delay", "30"],
+    )
+
+    assert result.exit_code == 0, (result.output, repr(result.exception))
+    payload = json.loads((storage.config_dir() / "cron.json").read_text(encoding="utf-8"))
+    assert payload["jobs"]["cron-2"] == {
+        "schedule": "*/10 * * * *",
+        "target": "cleanup-task",
+        "last_run_at": None,
+    }
+    assert payload["lifejobs"]["lifejob-1"] == {
+        "target": "cleanup-task",
+        "target_job": "cron-1",
+        "delay_seconds": 30,
+        "pending_due_at": None,
+        "last_run_at": None,
+    }

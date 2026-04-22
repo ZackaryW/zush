@@ -15,7 +15,7 @@ import pytest
 from zush import create_zush_group
 from zush.configparse.config import Config
 from zush.core.context import HookRegistry, ZushCtx
-from zush.core.cron import (
+from zush.cron import (
     invoke_cron_job,
     run_due_cron_jobs,
     split_cli_tokens,
@@ -125,7 +125,7 @@ def test_run_due_cron_jobs_dispatches_detached_jobs_without_in_process_invoke(
         """Capture one detached dispatch so the test can assert the scheduler path."""
         seen.append(f"{active_storage.config_dir()}::{job_name}")
 
-    monkeypatch.setattr("zush.core.cron.spawn_detached_cron_job", fake_spawn)
+    monkeypatch.setattr("zush.cron.execution.spawn_detached_cron_job", fake_spawn)
 
     run_due_cron_jobs(group, storage, now=datetime(2026, 4, 17, 10, 15))
 
@@ -190,7 +190,7 @@ def test_run_due_cron_jobs_covers_crontab_schedule_matrix(
         """Capture due invocations so the schedule matrix can assert match behavior without running commands."""
         seen.append(job_name)
 
-    monkeypatch.setattr("zush.core.cron.invoke_cron_job", fake_invoke)
+    monkeypatch.setattr("zush.cron.execution.invoke_cron_job", fake_invoke)
 
     run_due_cron_jobs(group, storage, now=now)
 
@@ -233,7 +233,7 @@ def test_run_due_cron_jobs_ignores_invalid_schedule_without_dispatch(tmp_path: P
         """Capture invocations to prove invalid schedules are skipped."""
         seen.append(job_name)
 
-    monkeypatch.setattr("zush.core.cron.invoke_cron_job", fake_invoke)
+    monkeypatch.setattr("zush.cron.execution.invoke_cron_job", fake_invoke)
 
     run_due_cron_jobs(group, storage, now=datetime(2026, 4, 17, 10, 15))
 

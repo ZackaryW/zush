@@ -8,7 +8,7 @@ from pathlib import Path
 
 from zush import create_zush_group
 from zush.configparse.config import Config
-from zush.core.cron import run_due_cron_jobs, write_cron_registry
+from zush.cron import run_due_cron_jobs, write_cron_registry
 from zush.core.storage import DirectoryStorage
 
 

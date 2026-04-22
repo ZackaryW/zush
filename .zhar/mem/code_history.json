@@ -17,5 +17,23 @@
       "significance": "patch"
     },
     "custom": {}
+  },
+  "37584": {
+    "id": "37584",
+    "group": "code_history",
+    "node_type": "file_change",
+    "summary": "README docs split",
+    "status": "active",
+    "tags": [],
+    "source": "README.md",
+    "content": null,
+    "created_at": "2026-04-22T01:25:41Z",
+    "updated_at": "2026-04-22T01:25:41Z",
+    "expires_at": null,
+    "metadata": {
+      "significance": "refactor",
+      "commit_hash": "working-tree"
+    },
+    "custom": {}
   }
 }

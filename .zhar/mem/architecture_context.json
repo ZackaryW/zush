@@ -79,8 +79,8 @@
     },
     "custom": {}
   },
-  "27ee8": {
-    "id": "27ee8",
+  "32dd8": {
+    "id": "32dd8",
     "group": "architecture_context",
     "node_type": "architecture",
     "summary": "Self cron uses two-phase registry model",
@@ -89,18 +89,18 @@
       "cron",
       "self-surface"
     ],
-    "source": "src/zush/core/cron.py",
-    "content": "Self cron now separates reusable command registrations from schedule entries.\n- `self cron register <name> <command_path> [args/kwargs] [-d|--detach]` stores the command path, positional args, keyword args, and detach mode under `registrations`.\n- `self cron add <name> <cronstring>` appends a job under `jobs` that references the registration via `target`, allowing multiple schedules to reuse the same command payload.\n- Detached execution is resolved from the registration, so every schedule using that target inherits the same execution mode.\n- Legacy inline job payloads remain executable so existing `cron.json` files do not break immediately.",
-    "created_at": "2026-04-20T01:10:20Z",
-    "updated_at": "2026-04-20T01:10:20Z",
+    "source": "src/zush/cron/registry.py",
+    "content": "Self cron separates reusable command registrations from schedule entries. register stores command payload in registrations; add stores schedule jobs in jobs via target registration, allowing schedule reuse and detach-mode inheritance by target.",
+    "created_at": "2026-04-22T01:02:42Z",
+    "updated_at": "2026-04-22T01:02:42Z",
     "expires_at": null,
     "metadata": {
       "agent": "GitHubCopilot"
     },
     "custom": {}
   },
-  "286f8": {
-    "id": "286f8",
+  "3337e": {
+    "id": "3337e",
     "group": "architecture_context",
     "node_type": "architecture",
     "summary": "Self cron supports delayed lifejobs",
@@ -109,18 +109,18 @@
       "cron",
       "lifejob"
     ],
-    "source": "src/zush/core/cron.py",
-    "content": "Self cron now supports delayed lifejobs attached to scheduled jobs.\n- `cron.json` includes a top-level `lifejobs` map beside `registrations` and `jobs`.\n- `self cron add <registration> --lifejob <target_job> --delay <seconds>` creates a delayed follower that reuses an existing registration.\n- When the target job runs, attached lifejobs are rescheduled from that latest run time, so a newer parent run replaces an older pending cleanup window.\n- `self cron remove <job_name>` cascades and deletes any attached lifejobs for that job.\n- Lifejobs inherit detached or attached execution from their own registration target.",
-    "created_at": "2026-04-20T02:08:58Z",
-    "updated_at": "2026-04-20T02:08:58Z",
+    "source": "src/zush/cron/execution.py",
+    "content": "Cron supports delayed lifejobs attached to scheduled jobs. Lifejobs live in a top-level lifejobs map, can be added with --lifejob and --delay, are rescheduled from the latest parent run, and are removed when the parent job is removed.",
+    "created_at": "2026-04-22T01:02:43Z",
+    "updated_at": "2026-04-22T01:02:43Z",
     "expires_at": null,
     "metadata": {
       "agent": "GitHubCopilot"
     },
     "custom": {}
   },
-  "29e77": {
-    "id": "29e77",
+  "34087": {
+    "id": "34087",
     "group": "architecture_context",
     "node_type": "architecture",
     "summary": "Self cron start supports simulated time controls",
@@ -129,18 +129,18 @@
       "cron",
       "runtime"
     ],
-    "source": "src/zush/core/cron_runtime.py",
-    "content": "Self cron start now supports simulated time controls through a dedicated runtime helper layer.\n- `self cron start --scale <float>` advances simulated scheduler time faster or slower than wall clock.\n- `self cron start --mocktime <iso-datetime>` starts the scheduler from a fixed simulated timestamp.\n- `self cron start --dry-run` evaluates jobs and lifejobs in memory, emits dispatch lines, and leaves `cron.json` unchanged.\n- `src/zush/core/cron_runtime.py` owns clock advancement, mocktime parsing, and bounded test-loop execution so integration tests can simulate complex interactions without sleeping or mutating persisted state.",
-    "created_at": "2026-04-20T02:21:22Z",
-    "updated_at": "2026-04-20T02:21:22Z",
+    "source": "src/zush/cron/runtime.py",
+    "content": "Cron start supports runtime simulation controls: --scale for accelerated time, --mocktime for fixed start timestamps, and --dry-run for in-memory dispatch evaluation without persistent registry mutation.",
+    "created_at": "2026-04-22T01:02:43Z",
+    "updated_at": "2026-04-22T01:02:43Z",
     "expires_at": null,
     "metadata": {
       "agent": "GitHubCopilot"
     },
     "custom": {}
   },
-  "2b90c": {
-    "id": "2b90c",
+  "350d1": {
+    "id": "350d1",
     "group": "architecture_context",
     "node_type": "architecture",
     "summary": "Self cron supports single-day completion guards",
@@ -149,10 +149,25 @@
       "cron",
       "completion"
     ],
-    "source": "src/zush/core/cron_completion.py",
-    "content": "Self cron entries can opt into single-day completion guards backed by a daily JSONL ledger.\n- `self cron add ... -sdc/--single-day-complete` stores the opt-in flag on individual jobs or lifejobs instead of on shared registrations.\n- `src/zush/core/cron_completion.py` owns `cron_completion.jsonl`, which stores one line per ISO date with the entry names that already completed that day.\n- Scheduler dispatch skips any job or lifejob marked `single_day_complete` when its name already appears in that day's ledger, and successful non-dry-run execution records the completion.\n- Lifejobs clear pending due times when skipped for same-day completion so stale due entries do not keep retriggering within the same day.",
-    "created_at": "2026-04-20T02:54:36Z",
-    "updated_at": "2026-04-20T02:54:36Z",
+    "source": "src/zush/cron/completion.py",
+    "content": "Cron entries can enable single-day completion guards. The completion ledger is maintained in cron_completion.jsonl, and scheduler execution skips and records completed names by effective day boundary to prevent repeated same-day runs.",
+    "created_at": "2026-04-22T01:02:43Z",
+    "updated_at": "2026-04-22T01:02:43Z",
+    "expires_at": null,
+    "metadata": {},
+    "custom": {}
+  },
+  "36655": {
+    "id": "36655",
+    "group": "architecture_context",
+    "node_type": "architecture",
+    "summary": "Cron package moved to root-level module namespace",
+    "status": "active",
+    "tags": [],
+    "source": "src/zush/cron/__init__.py",
+    "content": "Cron code is now organized at src/zush/cron with focused modules for registry, execution, runtime, completion, and plugin sync. Core-level cron compatibility facades were removed, and callers should import from zush.cron paths.",
+    "created_at": "2026-04-22T01:02:44Z",
+    "updated_at": "2026-04-22T01:02:44Z",
     "expires_at": null,
     "metadata": {},
     "custom": {}

@@ -302,3 +302,81 @@ ZushPlugin = p
     teardowns = runner.invoke(group, ["demo", "teardowns"])
     assert teardowns.exit_code == 0
     assert teardowns.output.strip() == "[1, 2]"
+
+
+def test_create_zush_group_plugin_cron_namespace_skips_when_namespace_in_use(tmp_path) -> None:
+    """Plugin cron onload should skip registration when the requested namespace already has persisted entries."""
+    env_root = tmp_path / "env"
+    env_root.mkdir()
+    pkg = env_root / "zush_provider"
+    pkg.mkdir()
+    (pkg / "__zush__.py").write_text(
+        """
+from zush.pluginloader.plugin import Plugin
+
+p = Plugin()
+p.group("demo").command("run", callback=lambda: None)
+p.cron_namespace("ops")
+p.cron_register("main", "demo.run")
+p.cron_job("hourly", registration="main", schedule="0 * * * *")
+ZushPlugin = p
+""",
+        encoding="utf-8",
+    )
+    storage = DirectoryStorage(tmp_path / "data")
+    storage.config_dir().mkdir(parents=True, exist_ok=True)
+    (storage.config_dir() / "cron.json").write_text(
+        """
+{
+  "registrations": {
+    "ops.main": {"command": "self.map", "args": [], "kwargs": {}, "detach": false}
+  },
+  "jobs": {},
+  "lifejobs": {}
+}
+""".strip(),
+        encoding="utf-8",
+    )
+
+    create_zush_group(config=Config(envs=[env_root], env_prefix=["zush_"]), storage=storage)
+
+    payload = __import__("json").loads((storage.config_dir() / "cron.json").read_text(encoding="utf-8"))
+    assert payload["registrations"]["ops.main"]["command"] == "self.map"
+    assert payload["jobs"] == {}
+
+
+def test_create_zush_group_plugin_cron_unregisters_on_plugin_removal(tmp_path) -> None:
+    """Plugin-managed cron entries should be removed at onload when the owning plugin is no longer present."""
+    env_root = tmp_path / "env"
+    env_root.mkdir()
+    pkg = env_root / "zush_provider"
+    pkg.mkdir()
+    (pkg / "__zush__.py").write_text(
+        """
+from zush.pluginloader.plugin import Plugin
+
+p = Plugin()
+p.group("demo").command("run", callback=lambda: None)
+p.group("demo").command("cleanup", callback=lambda: None)
+p.cron_namespace("ops", register_mode="reinforce", on_remove="unregister")
+p.cron_register("main", "demo.run")
+p.cron_job("hourly", registration="main", schedule="0 * * * *")
+p.cron_register("cleanup", "demo.cleanup")
+p.cron_lifejob("followup", registration="cleanup", target_job="hourly", delay_seconds=45)
+ZushPlugin = p
+""",
+        encoding="utf-8",
+    )
+    storage = DirectoryStorage(tmp_path / "data")
+
+    create_zush_group(config=Config(envs=[env_root], env_prefix=["zush_"]), storage=storage)
+    first_payload = __import__("json").loads((storage.config_dir() / "cron.json").read_text(encoding="utf-8"))
+    assert "ops.main" in first_payload["registrations"]
+    assert "ops.hourly" in first_payload["jobs"]
+    assert "ops.followup" in first_payload["lifejobs"]
+
+    create_zush_group(config=Config(envs=[], env_prefix=["zush_"]), storage=storage)
+    second_payload = __import__("json").loads((storage.config_dir() / "cron.json").read_text(encoding="utf-8"))
+    assert second_payload["registrations"] == {}
+    assert second_payload["jobs"] == {}
+    assert second_payload["lifejobs"] == {}

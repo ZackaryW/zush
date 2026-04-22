@@ -160,5 +160,23 @@
       "target_ids": "2b90c"
     },
     "custom": {}
+  },
+  "3857c": {
+    "id": "3857c",
+    "group": "notes",
+    "node_type": "note",
+    "summary": "README was reduced to a concise overview and deep sections were split into docs/configuration.md, docs/plugins.md, docs/runtime-and-services.md, docs/cron.md, and docs/embedding.md to keep top-level onboarding short.",
+    "status": "active",
+    "tags": [],
+    "source": null,
+    "content": "README was reduced to a concise overview and deep sections were split into docs/configuration.md, docs/plugins.md, docs/runtime-and-services.md, docs/cron.md, and docs/embedding.md to keep top-level onboarding short.",
+    "created_at": "2026-04-22T01:25:48Z",
+    "updated_at": "2026-04-22T01:25:48Z",
+    "expires_at": null,
+    "metadata": {
+      "agent": "copilot",
+      "target_ids": "37584"
+    },
+    "custom": {}
   }
 }

@@ -13,7 +13,7 @@ from click.testing import CliRunner
 
 from zush import create_zush_group
 from zush.configparse.config import Config
-from zush.core.cron_runtime import run_cron_scheduler
+from zush.cron.runtime import run_cron_scheduler
 from zush.core.storage import DirectoryStorage
 
 

@@ -10,7 +10,7 @@ import pytest
 
 from zush import create_zush_group
 from zush.configparse.config import Config
-from zush.core.cron import run_due_cron_jobs, write_cron_registry
+from zush.cron import run_due_cron_jobs, write_cron_registry
 from zush.core.storage import DirectoryStorage
 
 
@@ -193,7 +193,7 @@ def test_run_due_cron_jobs_rejects_invalid_lifejob_target_without_dispatch(tmp_p
         """Capture unexpected lifejob dispatches for this invalid-target test."""
         seen.append("called")
 
-    monkeypatch.setattr("zush.core.cron.invoke_cron_job", fake_invoke)
+    monkeypatch.setattr("zush.cron.execution.invoke_cron_job", fake_invoke)
 
     run_due_cron_jobs(group, storage, now=datetime(2026, 4, 17, 10, 15, 2))
 
