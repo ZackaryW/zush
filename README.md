@@ -13,7 +13,7 @@ zush Pathverse/automation:jobs.cleanup --var region=west
 
 ## Requirements and installation
 
-Zush requires Python 3.14 or newer, [GitHub CLI](https://cli.github.com/) (`gh`), and a working `gh auth login`.
+Zush requires Python 3.11 or newer, [GitHub CLI](https://cli.github.com/) (`gh`), and a working `gh auth login`.
 Script execution additionally requires the native runner for the selected file type.
 
 ```console

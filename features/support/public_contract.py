@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import io
 import json
+import shutil
+import subprocess
 import sys
+import zipfile
 from contextlib import redirect_stderr
+from email.parser import Parser
 from pathlib import Path
 
 from zush.application import Application
@@ -237,6 +241,48 @@ def verify_command_aliases(root: Path) -> None:
         assert run_cli(["run", "missing"], app_without_remote) == 2
 
 
+def verify_runtime_compatibility(root: Path) -> None:
+    project = Path(__file__).parents[2]
+    output = root / "dist"
+    uv = shutil.which("uv")
+    assert uv is not None
+    build = subprocess.run(  # noqa: S603 - fixed build command
+        [uv, "build", "--out-dir", str(output)],
+        cwd=project,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert build.returncode == 0, build.stderr or build.stdout
+    wheel = next(output.glob("zush-*.whl"))
+    with zipfile.ZipFile(wheel) as archive:
+        metadata_path = next(name for name in archive.namelist() if name.endswith(".dist-info/METADATA"))
+        metadata = Parser().parsestr(archive.read(metadata_path).decode("utf-8"))
+    assert metadata["Requires-Python"] == ">=3.11"
+    assert not metadata.get_all("Requires-Dist")
+
+    run = subprocess.run(  # noqa: S603 - fixed isolated public CLI command
+        [
+            uv,
+            "run",
+            "--isolated",
+            "--no-project",
+            "--python",
+            "3.11",
+            "--with",
+            str(wheel),
+            "zush",
+            "--version",
+        ],
+        cwd=project,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert run.returncode == 0, run.stderr or run.stdout
+    assert run.stdout.strip() == "zush 0.1.0"
+
+
 def _fixture(root: Path) -> tuple[ZushPaths, dict[str, list[Repository]], FakeWorkspace]:
     paths = ZushPaths.from_environment({"ZUSH_HOME": str(root / "state")})
     tools = root / "tools"
@@ -257,4 +303,5 @@ VERIFIERS = {
     "script-execution": verify_script_execution,
     "structured-input": verify_structured_input,
     "command-aliases": verify_command_aliases,
+    "runtime-compatibility": verify_runtime_compatibility,
 }
