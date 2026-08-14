@@ -1,0 +1,4 @@
+interface:
+  display_name: "Configure Zush"
+  short_description: "Configure namespaces, aliases, and local state"
+  default_prompt: "Use $zush-configure to configure Zush namespaces, aliases, and state."

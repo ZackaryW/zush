@@ -1,0 +1,4 @@
+interface:
+  display_name: "Use Zush"
+  short_description: "Run repository scripts and pass typed inputs"
+  default_prompt: "Use $zush-use to run a repository script with Zush."
