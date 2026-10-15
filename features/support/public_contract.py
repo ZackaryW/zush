@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -49,8 +50,10 @@ class FakeWorkspace:
             raise IntegrationError(f"failed to install {target}")
         return self.paths[target]
 
-    def installed(self) -> dict[str, Path]:
-        return self.paths
+    def installed(self, targets: set[str] | None = None) -> dict[str, Path]:
+        return {
+            key.casefold(): value for key, value in self.paths.items() if targets is None or key.casefold() in targets
+        }
 
     def update_all(self, repositories: list[Repository]) -> None:
         self.updated = {item.target for item in repositories}
@@ -261,26 +264,18 @@ def verify_runtime_compatibility(root: Path) -> None:
     with zipfile.ZipFile(wheel) as archive:
         assert not any("/vendor/" in name for name in archive.namelist())
 
-    run = subprocess.run(  # noqa: S603 - fixed isolated public CLI command
-        [
-            uv,
-            "run",
-            "--isolated",
-            "--no-project",
-            "--python",
-            "3.12",
-            "--with",
-            str(wheel),
-            "zush",
-            "--version",
-        ],
-        cwd=project,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    assert run.returncode == 0, run.stderr or run.stdout
-    assert run.stdout.strip() == "zush 0.1.0"
+    for flag, expected in (("--version", "zush 0.1.0"), ("--help", "zush commands")):
+        run = subprocess.run(  # noqa: S603 - fixed isolated public CLI command
+            [uv, "run", "--isolated", "--no-project", "--python", "3.12", "--with", str(wheel), "zush", flag],
+            cwd=project,
+            check=False,
+            capture_output=True,
+            text=True,
+            env={**os.environ, "ZUSH_HOME": str(root / "must-not-exist"), "ZUSH_SAUCEPAN": "must-not-run"},
+        )
+        assert run.returncode == 0, run.stderr or run.stdout
+        assert expected in run.stdout
+    assert not (root / "must-not-exist").exists()
 
 
 def _fixture(root: Path) -> tuple[ZushPaths, dict[str, list[Repository]], FakeWorkspace]:

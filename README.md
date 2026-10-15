@@ -88,8 +88,6 @@ zush alias unbind ship
 Binding replaces a remote alias locally. Unbinding records a local tombstone, so it can also hide a remote-only
 alias. Local alias state and retained output bindings are separate from the remote `.zush` repository.
 
-## Updates and state
-
 ## Commands inside installed repositories
 
 An installed repository can publish `.zush/map.toml` without a central alias:
@@ -133,3 +131,19 @@ The manager uses its normal user-level `.saucepan` root. Set `ZUSH_SAUCEPAN_ROOT
 Bindings are written atomically under a bounded file lock. Selected and previous output generations stay pinned, so an update cannot remove files used by another Zush process. This deliberately consumes storage; automatic pin cleanup is not implemented. Failed updates preserve the previous selection. A lost response is reconciled on the next update using the saved operation identity, not a new request.
 
 Earlier Zush state is unsupported. Choose a new `ZUSH_HOME` and reacquire repositories; no old state or store is automatically deleted. Recreate namespace enrollment and local aliases as needed.
+
+## Development checks
+
+```console
+uv sync --locked
+uv run python -m unittest discover -s tests
+uv run ruff check src tests features
+uv build
+```
+
+The unit suite skips real-manager integration unless `ZUSH_TEST_SAUCEPAN` names an absolute executable path.
+Set it to a current Saucepan binary and rerun the suite to exercise local Git acquisition, central and repository
+command maps, explicit updates, failed updates, and old-output retention. Tests initialize temporary stores and
+leave the user's real store unchanged. Run each `features/<capability>` directory with `uv run behave` for the
+behavior checks; the runtime capability also installs the wheel in a fresh Python 3.12 environment and checks
+help/version without invoking the manager. Native script runners beyond Python require their respective platform.

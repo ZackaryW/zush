@@ -37,7 +37,7 @@ from zush.utils.structured import build_payload, input_environment
 class Workspace(Protocol):
     def ensure(self, repository: Repository) -> Path: ...
 
-    def installed(self) -> dict[str, Path]: ...
+    def installed(self, targets: set[str] | None = None) -> dict[str, Path]: ...
 
     def update_all(self, repositories: Sequence[Repository]) -> None: ...
 
@@ -150,10 +150,9 @@ class Application:
         for owner in self.list_namespaces():
             if owner.casefold() != current.casefold():
                 eligible.extend(self.github.repositories(owner))
-        installed = self.workspace.installed()
+        eligible = [repo for repo in eligible if not self._excluded(configuration, repo.owner, repo.name)]
+        installed = self.workspace.installed({repo.target.casefold() for repo in eligible})
         for repository in sorted(eligible, key=lambda repo: (repo.target.casefold(), repo.target)):
-            if self._excluded(configuration, repository.owner, repository.name):
-                continue
             output = installed.get(repository.target.casefold())
             if output is not None:
                 commands.extend(load_repository_commands(repository.target, output))

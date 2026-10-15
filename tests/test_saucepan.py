@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import subprocess
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
@@ -13,7 +14,7 @@ from saucepan_sdk import SaucepanError, TransportError
 
 from zush.errors import IntegrationError
 from zush.github import Repository
-from zush.saucepan import SaucepanWorkspace
+from zush.saucepan import SaucepanWorkspace, _external_client
 
 
 class FakeClient:
@@ -108,6 +109,12 @@ class SaucepanTests(unittest.TestCase):
         self.assertEqual(self.workspace.ensure(self.repo), new)
         self.assertEqual(len(json.loads(self.path.read_text())["history"]), 1)
 
+    def test_ineligible_installed_paths_are_not_resolved(self):
+        self.workspace.ensure(self.repo)
+        self.client.receipts.clear()
+        # A removed namespace or excluded source must not break discovery elsewhere.
+        self.assertEqual(self.workspace.installed({"other/eligible"}), {})
+
     def test_lost_receipt_retries_original_identity_and_revision(self):
         self.client.lose_receipt = True
         with self.assertRaises(IntegrationError):
@@ -144,3 +151,16 @@ class SaucepanTests(unittest.TestCase):
             self.assertRaisesRegex(IntegrationError, "Install Saucepan"),
         ):
             workspace.ensure(self.repo)
+
+    def test_explicit_runtime_overrides_and_unsupported_version(self):
+        with (
+            patch.dict("os.environ", {"ZUSH_SAUCEPAN": "chosen", "ZUSH_SAUCEPAN_ROOT": "isolated"}, clear=True),
+            patch("zush.saucepan.subprocess.run") as run,
+            patch("zush.saucepan.Client") as client,
+        ):
+            run.return_value = subprocess.CompletedProcess([], 0, "saucepan 0.9.0\n")
+            _external_client()
+            client.assert_called_once_with(executable="chosen", root="isolated")
+            run.return_value = subprocess.CompletedProcess([], 0, "saucepan 0.3.0\n")
+            with self.assertRaisesRegex(IntegrationError, "Unsupported Saucepan"):
+                _external_client()

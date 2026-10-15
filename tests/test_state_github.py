@@ -59,3 +59,40 @@ class GitHubTests(unittest.TestCase):
         client = GitHubClient(run=lambda _argv: "[]")
         with self.assertRaises(ZushError):
             client.current_login()
+
+    def test_pages_are_followed_and_repeated_cursor_is_rejected(self):
+        calls = []
+
+        def run(argv):
+            calls.append(argv)
+            return json.dumps(
+                {
+                    "data": {
+                        "repositoryOwner": {
+                            "repositories": {
+                                "nodes": [],
+                                "pageInfo": {"hasNextPage": len(calls) == 1, "endCursor": "next"},
+                            }
+                        }
+                    }
+                }
+            )
+
+        self.assertEqual(GitHubClient(run=run).repositories("alice"), [])
+        self.assertEqual(len(calls), 2)
+        self.assertIn("cursor=next", calls[1])
+
+        repeated = json.dumps(
+            {
+                "data": {
+                    "repositoryOwner": {
+                        "repositories": {
+                            "nodes": [],
+                            "pageInfo": {"hasNextPage": True, "endCursor": "same"},
+                        }
+                    }
+                }
+            }
+        )
+        with self.assertRaisesRegex(ZushError, "invalid GitHub repository page"):
+            GitHubClient(run=lambda _: repeated).repositories("alice")

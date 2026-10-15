@@ -38,8 +38,10 @@ class FakeWorkspace:
         self.ensure_calls.append(target)
         return self.paths[target]
 
-    def installed(self) -> dict[str, Path]:
-        return self.paths
+    def installed(self, targets: set[str] | None = None) -> dict[str, Path]:
+        return {
+            key.casefold(): value for key, value in self.paths.items() if targets is None or key.casefold() in targets
+        }
 
     def update_all(self, repositories: list[Repository]) -> None:
         self.updated = {item.target for item in repositories}

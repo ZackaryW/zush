@@ -111,9 +111,13 @@ class SaucepanWorkspace:
                 return self._path(previous)
             return self._prepare(state, repository)
 
-    def installed(self) -> dict[str, Path]:
+    def installed(self, targets: set[str] | None = None) -> dict[str, Path]:
         with self._locked():
-            return {key: self._path(binding) for key, binding in self._load()["selected"].items()}
+            return {
+                key: self._path(binding)
+                for key, binding in self._load()["selected"].items()
+                if targets is None or key in targets
+            }
 
     def update_all(self, repositories: Sequence[Repository]) -> None:
         with self._locked():
