@@ -33,15 +33,16 @@ class FakeWorkspace:
         self.updated: set[str] | None = None
         self.registered: Path | None = None
 
-    def ensure(self, target: str) -> Path:
+    def ensure(self, repository: Repository) -> Path:
+        target = repository.target
         self.ensure_calls.append(target)
         return self.paths[target]
 
-    def register_index(self, path: Path) -> None:
-        self.registered = path
+    def installed(self) -> dict[str, Path]:
+        return self.paths
 
-    def update_all(self, visible_targets: set[str]) -> None:
-        self.updated = visible_targets
+    def update_all(self, repositories: list[Repository]) -> None:
+        self.updated = {item.target for item in repositories}
 
 
 class ApplicationTests(unittest.TestCase):

@@ -13,7 +13,7 @@ zush Pathverse/automation:jobs.cleanup --var region=west
 
 ## Requirements and installation
 
-Zush requires Python 3.11 or newer, [GitHub CLI](https://cli.github.com/) (`gh`), and a working `gh auth login`.
+Zush requires Python 3.12 or newer, [GitHub CLI](https://cli.github.com/) (`gh`), and a working `gh auth login`.
 Script execution additionally requires the native runner for the selected file type.
 
 ```console
@@ -21,10 +21,7 @@ uv tool install .
 zush --version
 ```
 
-Zush uses Saucepan v0.3 as its repository source manager. An installed `saucepan` is reused; otherwise the pinned
-binary is acquired on first use and stored under Zush's local state directory. Saucepan owns checkout installation,
-provenance, paths, and updates. Zush only generates a private, ref-pinned acquisition index; it does not generate a
-second command tree.
+Install Saucepan 0.9.x separately and run `saucepan init` before the first repository operation. Zush uses the external Python SDK pinned to the reviewed release source; it never downloads a private manager or initializes your store automatically. GitHub CLI supplies exact commit metadata, while Saucepan owns retrieval and retained immutable outputs. Private Git repositories additionally require working Git transport credentials (for example, `gh auth setup-git`). Empty repositories have no executable revision and are omitted.
 
 ## Namespaces and addresses
 
@@ -89,10 +86,17 @@ zush alias unbind ship
 ```
 
 Binding replaces a remote alias locally. Unbinding records a local tombstone, so it can also hide a remote-only
-alias. Local alias state and the generated Saucepan index are separate from the remote `.zush` repository.
+alias. Local alias state and retained output bindings are separate from the remote `.zush` repository.
 
 ## Updates and state
 
 Normal execution reuses an installed checkout and never updates it. Run `zush update` explicitly to refresh every
 visible managed repository. By default local state lives in `~/.zush`; set `ZUSH_HOME` to relocate all Zush state or
 `ZUSH_SAUCEPAN` to select a specific Saucepan executable.
+
+The manager uses its normal user-level .saucepan root. Set ZUSH_SAUCEPAN_ROOT to use an explicitly initialized different store. Applications, scopes, credentials and keyring protection are optional Saucepan features and are not required by this launcher.
+
+Bindings are written atomically under a bounded file lock. Selected and previous output generations stay pinned, so an update cannot remove files used by another Zush process. This deliberately consumes storage; automatic pin cleanup is not implemented. Failed updates preserve the previous selection. A lost response is reconciled on the next update using the saved operation identity, not a new request.
+
+Earlier Zush state is unsupported. Choose a new ZUSH_HOME and reacquire repositories; no old state or store is automatically deleted. Recreate namespace enrollment and local aliases as needed.
+

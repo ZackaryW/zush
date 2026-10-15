@@ -25,9 +25,9 @@ class Repository:
 def _run(argv: list[str]) -> str:
     try:
         completed = subprocess.run(  # noqa: S603 - explicit argv, never a shell command
-            argv, check=False, capture_output=True, text=True
+            argv, check=False, capture_output=True, text=True, timeout=60
         )
-    except OSError as error:
+    except (OSError, subprocess.TimeoutExpired) as error:
         raise IntegrationError(f"cannot run GitHub CLI: {error}") from error
     if completed.returncode:
         detail = completed.stderr.strip() or completed.stdout.strip() or "GitHub CLI failed"
@@ -46,32 +46,59 @@ class GitHubClient:
         return payload["login"]
 
     def repositories(self, owner: str) -> list[Repository]:
-        payload = self._json(
-            [
-                "gh",
-                "repo",
-                "list",
-                owner,
-                "--limit",
-                "1000",
-                "--json",
-                "name,nameWithOwner,description,defaultBranchRef",
-            ]
-        )
-        if not isinstance(payload, list):
-            raise ZushError(f"GitHub repository listing for {owner} is not an array")
+        # gh repo list exposes the default branch NAME, not its commit oid.
+        # Request exact commit evidence directly, paging without cloning anything.
+        query = """query($owner:String!,$cursor:String) {
+          repositoryOwner(login:$owner) {
+            repositories(first:100,after:$cursor,ownerAffiliations:[OWNER],orderBy:{field:NAME,direction:ASC}) {
+              nodes { name nameWithOwner description defaultBranchRef { target { oid } } }
+              pageInfo { hasNextPage endCursor }
+            }
+          }
+        }"""
         repositories: list[Repository] = []
-        for entry in payload:
+        cursor = None
+        seen = set()
+        while True:
+            argv = ["gh", "api", "graphql", "-f", f"query={query}", "-f", f"owner={owner}"]
+            if cursor:
+                argv.extend(["-f", f"cursor={cursor}"])
+            payload = self._json(argv)
             try:
+                connection = payload["data"]["repositoryOwner"]["repositories"]
+                nodes, page = connection["nodes"], connection["pageInfo"]
+                if payload.get("errors") or not isinstance(nodes, list):
+                    raise TypeError
+                repositories.extend(self._records(owner, nodes))
+                if not isinstance(page["hasNextPage"], bool):
+                    raise TypeError
+                if not page["hasNextPage"]:
+                    break
+                cursor = page["endCursor"]
+                if not isinstance(cursor, str) or not cursor or cursor in seen:
+                    raise TypeError
+                seen.add(cursor)
+            except (KeyError, TypeError) as error:
+                raise ZushError(f"invalid GitHub repository page for {owner}") from error
+        return repositories
+
+    @staticmethod
+    def _records(owner: str, nodes: list) -> list[Repository]:
+        repositories = []
+        for entry in nodes:
+            try:
+                # Empty repositories have no commit to materialize.
+                if entry["defaultBranchRef"] is None:
+                    continue
                 name = entry["name"]
                 full_name = entry["nameWithOwner"]
                 branch = entry["defaultBranchRef"]
-                commit = branch["oid"]
+                commit = branch["target"]["oid"]
                 description = entry.get("description") or ""
                 if (
                     not isinstance(name, str)
                     or not isinstance(full_name, str)
-                    or full_name != f"{owner}/{name}"
+                    or full_name.casefold() != f"{owner}/{name}".casefold()
                     or not isinstance(commit, str)
                     or not commit
                     or not isinstance(description, str)

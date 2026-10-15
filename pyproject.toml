@@ -6,8 +6,11 @@ readme = "README.md"
 authors = [
     { name = "ZackaryW", email = "gitzackw@gmail.com" }
 ]
-requires-python = ">=3.11"
-dependencies = []
+requires-python = ">=3.12"
+dependencies = [
+    "saucepan-sdk @ git+https://github.com/ZackaryW/saucepan.git@041e4f90634e6007b58054a59604396f8fbebd21#subdirectory=sdk/python",
+    "filelock>=3.20,<4",
+]
 
 [project.scripts]
 zush = "zush:main"
@@ -23,9 +26,8 @@ dev = [
 ]
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py312"
 line-length = 120
-extend-exclude = ["src/zush/vendor"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "S", "ARG", "SIM", "C4"]

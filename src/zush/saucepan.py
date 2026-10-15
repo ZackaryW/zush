@@ -1,128 +1,260 @@
+"""Consumer bindings to immutable, durably retained Saucepan outputs."""
+
 from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Sequence
+from contextlib import contextmanager
 from pathlib import Path
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
-from zush.errors import IntegrationError, ZushError
+from filelock import FileLock, Timeout
+from saucepan_sdk import Client, SaucepanError, TransportError
 
-PINNED_SAUCEPAN_VERSION = "v0.3.0"
-CommandRunner = Callable[[list[str]], str]
+from zush.errors import IntegrationError
+from zush.github import Repository
+from zush.utils.state import atomic_write_text
+
+PIN_POLICY = str(uuid5(NAMESPACE_URL, "zush:pin:until-released:v1"))
+REFRESH_POLICY = str(uuid5(NAMESPACE_URL, "zush:refresh:always:v1"))
+POLICIES = [
+    {"uuid": PIN_POLICY, "type": "pin_policy", "retention": "until_released"},
+    {"uuid": REFRESH_POLICY, "type": "refresh_policy", "mode": "always"},
+]
 
 
-@dataclass(frozen=True)
-class InstalledRepository:
-    target: str
-    identity: str
-
-
-def _run(argv: list[str]) -> str:
+def _external_client() -> Client:
+    binary = os.environ.get("ZUSH_SAUCEPAN") or shutil.which("saucepan")
+    if not binary:
+        raise IntegrationError("Install Saucepan 0.9.x on PATH or set ZUSH_SAUCEPAN; then run saucepan init.")
     try:
-        completed = subprocess.run(  # noqa: S603 - explicit argv, never a shell command
-            argv, check=False, capture_output=True, text=True
+        result = subprocess.run(  # noqa: S603 - explicit executable, no shell
+            [binary, "--version"], capture_output=True, text=True, timeout=10, check=False
         )
-    except OSError as error:
-        raise IntegrationError(f"cannot run Saucepan: {error}") from error
-    if completed.returncode:
-        detail = completed.stderr.strip() or completed.stdout.strip() or "Saucepan failed"
-        raise IntegrationError(detail)
-    return completed.stdout
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise IntegrationError("Cannot run Saucepan; check ZUSH_SAUCEPAN and install Saucepan 0.9.x.") from error
+    if result.returncode or not re.fullmatch(r"saucepan 0\.9\.\d+(?:[-+][\w.-]+)?\s*", result.stdout):
+        raise IntegrationError("Unsupported Saucepan manager; install Saucepan 0.9.x.")
+    return Client(executable=binary, root=os.environ.get("ZUSH_SAUCEPAN_ROOT") or None)
 
 
 class SaucepanWorkspace:
+    """No I/O during construction. The bindings file is consumer state, not a store."""
+
     def __init__(
         self,
-        root: Path,
+        bindings: Path,
         *,
-        binary: str | Path | None = None,
-        run: CommandRunner = _run,
-        binary_destination: Path | None = None,
+        client: Client | None = None,
+        lock_timeout: float = 30,
+        origin: Callable[[Repository], str] = lambda repo: f"https://github.com/{repo.target}.git",
     ) -> None:
-        self.root = root
-        self._run = run
-        self.binary = str(binary or _resolve_binary(binary_destination))
-        self._ensure_config()
+        self.bindings = bindings
+        self._client = client
+        self._origin = origin
+        self.lock_timeout = lock_timeout
 
-    def ensure(self, target: str) -> Path:
-        installed = self._find(target)
-        if installed is None:
-            self._command("install", target)
-            installed = self._find(target)
-        if installed is None:
-            raise IntegrationError(f"Saucepan installed {target} without recording its provenance")
-        return Path(self._command("path", installed.identity).strip())
+    @property
+    def client(self) -> Client:
+        if self._client is None:
+            self._client = _external_client()
+        return self._client
 
-    def installed(self) -> list[InstalledRepository]:
-        payload = self._json("cat", "index")
-        if not isinstance(payload, list):
-            raise IntegrationError("Saucepan index is not an array")
-        result: list[InstalledRepository] = []
-        for entry in payload:
-            if not isinstance(entry, dict) or "repo" not in entry:
-                continue
-            sauce = entry.get("sauce")
-            target = entry.get("repo")
-            identity = sauce.get("name") if isinstance(sauce, dict) else None
-            if not isinstance(target, str) or not isinstance(identity, str):
-                raise IntegrationError("Saucepan index contains an invalid GitHub entry")
-            result.append(InstalledRepository(target, identity))
-        return result
-
-    def update_all(self, visible_targets: set[str]) -> None:
-        for entry in self.installed():
-            if entry.target in visible_targets:
-                self._command("update", entry.identity)
-
-    def uninstall(self, target: str) -> None:
-        installed = self._find(target)
-        if installed is None:
-            raise ZushError(f"repository is not installed: {target}")
-        self._command("uninstall", installed.identity)
-
-    def register_index(self, path: Path) -> None:
-        payload = self._json("cat", "buckets")
-        if not isinstance(payload, list):
-            raise IntegrationError("Saucepan bucket registry is not an array")
-        target = str(path)
-        if not any(isinstance(entry, dict) and entry.get("url") == target for entry in payload):
-            self._command("bucket", "add", target)
-
-    def _find(self, target: str) -> InstalledRepository | None:
-        return next((entry for entry in self.installed() if entry.target == target), None)
-
-    def _json(self, *args: str) -> object:
-        output = self._command(*args)
+    @contextmanager
+    def _locked(self):
+        self.bindings.parent.mkdir(parents=True, exist_ok=True)
         try:
-            return json.loads(output)
-        except json.JSONDecodeError as error:
-            raise IntegrationError("Saucepan returned invalid JSON") from error
+            with FileLock(str(self.bindings) + ".lock", timeout=self.lock_timeout):
+                yield
+        except Timeout as error:
+            raise IntegrationError("Another Zush operation holds the bindings lock; retry when it finishes.") from error
+        except SaucepanError as error:
+            raise IntegrationError(
+                f"Saucepan {error.code}; check the initialized root (saucepan init) and Git credentials. "
+                "GitHub CLI authentication alone does not configure Git access. Previous selections were retained."
+            ) from error
+        except TransportError as error:
+            raise IntegrationError(
+                f"Saucepan transport {error.kind}; retry to reconcile the saved operation. "
+                "Previous selections were retained."
+            ) from error
 
-    def _command(self, *args: str) -> str:
-        return self._run([self.binary, str(self.root), *args])
+    def _load(self) -> dict:
+        if not self.bindings.exists():
+            return {"consumer": str(uuid4()), "selected": {}, "pending": {}, "history": []}
+        try:
+            state = json.loads(self.bindings.read_text(encoding="utf-8"))
+            if (
+                not isinstance(state["consumer"], str)
+                or not all(isinstance(state[key], dict) for key in ("selected", "pending"))
+                or not isinstance(state["history"], list)
+            ):
+                raise ValueError
+            return state
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            raise IntegrationError(
+                f"Invalid Zush bindings at {self.bindings}; restore the state before continuing."
+            ) from error
 
-    def _ensure_config(self) -> None:
-        self.root.mkdir(parents=True, exist_ok=True)
-        config = self.root / "saucepan.toml"
-        if not config.exists():
-            config.write_text('[github]\nbinary = "gh"\n', encoding="utf-8", newline="\n")
+    def _save(self, state: dict) -> None:
+        atomic_write_text(self.bindings, json.dumps(state, indent=2, sort_keys=True) + "\n")
 
+    def ensure(self, repository: Repository) -> Path:
+        with self._locked():
+            state = self._load()
+            previous = state["selected"].get(repository.target.casefold())
+            if previous is not None:
+                return self._path(previous)
+            return self._prepare(state, repository)
 
-def _resolve_binary(destination: Path | None) -> str:
-    explicit = os.environ.get("ZUSH_SAUCEPAN")
-    if explicit:
-        return explicit
-    installed = shutil.which("saucepan")
-    if installed:
-        return installed
-    from zush.vendor.saucepan_resolver import resolve
+    def installed(self) -> dict[str, Path]:
+        with self._locked():
+            return {key: self._path(binding) for key, binding in self._load()["selected"].items()}
 
-    target = destination or Path.home() / ".zush" / "bin" / ("saucepan.exe" if os.name == "nt" else "saucepan")
-    target.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        return str(resolve(PINNED_SAUCEPAN_VERSION, str(target)))
-    except (OSError, RuntimeError, ValueError) as error:
-        raise IntegrationError(f"cannot acquire Saucepan {PINNED_SAUCEPAN_VERSION}: {error}") from error
+    def update_all(self, repositories: Sequence[Repository]) -> None:
+        with self._locked():
+            state = self._load()
+            for repository in repositories:
+                if repository.target.casefold() in state["selected"]:
+                    self._prepare(state, repository)
+
+    def _path(self, binding: dict) -> Path:
+        try:
+            pin = self.client.pin(binding["pin_uuid"])
+            output = pin["outputs"][binding["output_uuid"]]
+            directory = Path(output["path"])
+            if pin["state"] != "active" or not output["available"] or not directory.is_absolute():
+                raise ValueError
+            if not directory.is_dir():
+                raise ValueError
+            return directory
+        except (KeyError, TypeError, ValueError) as error:
+            raise IntegrationError("Selected output is not retained and available; refusing to execute it.") from error
+
+    def _prepare(self, state: dict, repository: Repository) -> Path:
+        target = repository.target.casefold()
+        if not repository.commit or not re.fullmatch(r"[a-fA-F0-9]{40,64}", repository.commit):
+            raise IntegrationError(f"GitHub did not provide an exact commit for {repository.target}.")
+        pending = state["pending"].get(target)
+        if pending is not None:
+            # Complete a possibly committed operation before starting another one.
+            self._finish(state, target, pending)
+        previous = state["selected"].get(target)
+        origin = self._origin(repository)
+        if previous and previous["commit"] == repository.commit and previous["origin"] == origin:
+            return self._path(previous)
+        pending = {
+            "commit": repository.commit,
+            "origin": origin,
+            "operation_key": f"zush:{state['consumer']}:{uuid4()}",
+        }
+        state["pending"][target] = pending
+        self._save(state)
+        return self._finish(state, target, pending)
+
+    def _finish(self, state: dict, target: str, pending: dict) -> Path:
+        self.client.register_policies(POLICIES)
+        if "group_uuid" not in pending:
+            source = self.client.register_source({"type": "git", "origin": pending["origin"]})
+            pending["source_uuid"] = source["uuid"]
+            definition = {
+                "registration_key": pending["operation_key"],
+                "members": [
+                    {
+                        "name": "repository",
+                        "target": {
+                            "type": "acquire",
+                            "source_uuid": source["uuid"],
+                            "selector": {"type": "commit", "commit": pending["commit"]},
+                            "policy_refs": [REFRESH_POLICY],
+                        },
+                    }
+                ],
+            }
+            self._save(state)
+            group = self.client.register_group(definition)
+            self._validate_definition(group["definition"], pending)
+            pending.update(group_uuid=group["uuid"], expected_revision=group["revision"])
+            self._save(state)
+        try:
+            receipt = self.client.prepare_group(
+                pending["group_uuid"],
+                expected_revision=pending["expected_revision"],
+                pin={"registration_key": pending["operation_key"], "policy_refs": [PIN_POLICY]},
+            )
+        except SaucepanError:
+            # A definitive domain failure did not publish a new consumer binding.
+            del state["pending"][target]
+            self._save(state)
+            raise
+        binding = self._validate(receipt, pending)
+        directory = self._path(binding)
+        previous = state["selected"].get(target)
+        if previous is not None:
+            state["history"].append(previous)
+        state["selected"][target] = binding
+        del state["pending"][target]
+        self._save(state)
+        return directory
+
+    def _validate(self, receipt: dict, pending: dict) -> dict:
+        try:
+            member = receipt["resources"]["members"]["repository"]
+            group, pin = receipt["group"], receipt["pin"]
+            self._validate_definition(group["definition"], pending)
+            output_uuid = member["output_uuid"]
+            entry = self.client.inspect(output_uuid)
+            selected = group["selected"]["members"]["repository"]
+            request = entry["request"]
+            if (
+                receipt["stale"]
+                or group["uuid"] != pending["group_uuid"]
+                or selected["output_uuid"] != output_uuid
+                or pin["state"] != "active"
+                or output_uuid not in pin["request"]["outputs"]
+                or pin["request"]["registration_key"] != pending["operation_key"]
+                or request["source_uuid"] != pending["source_uuid"]
+                or request["selector"] != {"type": "commit", "commit": pending["commit"]}
+                or entry["resolved"]["commit"] != pending["commit"]
+                or entry["state"] != "ready"
+            ):
+                raise ValueError
+            binding = {
+                **pending,
+                "group_revision": group["revision"],
+                "output_uuid": output_uuid,
+                "pin_uuid": pin["uuid"],
+            }
+            if Path(member["directory"]).resolve() != self._path(binding).resolve():
+                raise ValueError
+            return binding
+        except (KeyError, TypeError, ValueError) as error:
+            raise IntegrationError("Invalid retained output receipt; previous selection preserved.") from error
+
+    @staticmethod
+    def _validate_definition(definition: dict, pending: dict) -> None:
+        try:
+            members = definition["members"]
+            member = members[0]
+            target = member["target"]
+            if (
+                len(members) != 1
+                or member["name"] != "repository"
+                or member.get("relative")
+                or definition["registration_key"] != pending["operation_key"]
+                or definition.get("policy_refs")
+                or target["type"] != "acquire"
+                or target.get("claim")
+                or target["source_uuid"] != pending["source_uuid"]
+                or target["selector"] != {"type": "commit", "commit": pending["commit"]}
+                or target["policy_refs"] != [REFRESH_POLICY]
+                or any(value for key, value in target.get("selection", {}).items() if key != "format")
+                or target.get("selection", {}).get("format", "natural") != "natural"
+            ):
+                raise ValueError
+        except (KeyError, IndexError, TypeError, ValueError) as error:
+            raise IntegrationError("Group registration returned conflicting repository provenance.") from error

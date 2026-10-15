@@ -42,17 +42,18 @@ class FakeWorkspace:
         self.updated: set[str] | None = None
         self.failure: str | None = None
 
-    def ensure(self, target: str) -> Path:
+    def ensure(self, repository: Repository) -> Path:
+        target = repository.target
         self.ensure_calls.append(target)
         if self.failure == target:
             raise IntegrationError(f"failed to install {target}")
         return self.paths[target]
 
-    def register_index(self, path: Path) -> None:
-        self.register_calls.append(path)
+    def installed(self) -> dict[str, Path]:
+        return self.paths
 
-    def update_all(self, visible_targets: set[str]) -> None:
-        self.updated = visible_targets
+    def update_all(self, repositories: list[Repository]) -> None:
+        self.updated = {item.target for item in repositories}
 
 
 def verify_namespace_discovery(root: Path) -> None:
@@ -97,10 +98,7 @@ def verify_repository_materialization(root: Path) -> None:
     calls: list[list[str]] = []
     app = Application(paths, FakeGitHub(data), workspace, run_process=lambda argv, _env: calls.append(argv) or 0)
     assert run_cli(["~tools:hello"], app) == 0
-    bucket = json.loads(paths.bucket.read_text(encoding="utf-8"))
-    tools = next(entry for entry in bucket if entry["url"] == "alice/tools")
-    assert tools["ref"] == "abc"
-    assert "commands" not in json.dumps(tools)
+    assert workspace.ensure_calls[-1] == "alice/tools"
     assert workspace.updated is None
 
     assert run_cli(["~tools:hello"], app) == 0
@@ -258,8 +256,10 @@ def verify_runtime_compatibility(root: Path) -> None:
     with zipfile.ZipFile(wheel) as archive:
         metadata_path = next(name for name in archive.namelist() if name.endswith(".dist-info/METADATA"))
         metadata = Parser().parsestr(archive.read(metadata_path).decode("utf-8"))
-    assert metadata["Requires-Python"] == ">=3.11"
-    assert not metadata.get_all("Requires-Dist")
+    assert metadata["Requires-Python"] == ">=3.12"
+    assert any("saucepan-sdk" in value for value in metadata.get_all("Requires-Dist"))
+    with zipfile.ZipFile(wheel) as archive:
+        assert not any("/vendor/" in name for name in archive.namelist())
 
     run = subprocess.run(  # noqa: S603 - fixed isolated public CLI command
         [
@@ -268,7 +268,7 @@ def verify_runtime_compatibility(root: Path) -> None:
             "--isolated",
             "--no-project",
             "--python",
-            "3.11",
+            "3.12",
             "--with",
             str(wheel),
             "zush",

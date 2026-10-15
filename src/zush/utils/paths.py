@@ -11,9 +11,7 @@ class ZushPaths:
     home: Path
     namespaces: Path
     aliases: Path
-    bucket: Path
-    saucepan: Path
-    binary: Path
+    bindings: Path
 
     @classmethod
     def from_environment(cls, environment: Mapping[str, str] | None = None) -> ZushPaths:
@@ -23,7 +21,5 @@ class ZushPaths:
             home=home,
             namespaces=home / "namespaces.json",
             aliases=home / "aliases.json",
-            bucket=home / "generated-index" / "bucket.json",
-            saucepan=home / "saucepan",
-            binary=home / "bin" / ("saucepan.exe" if os.name == "nt" else "saucepan"),
+            bindings=home / "bindings.json",
         )
