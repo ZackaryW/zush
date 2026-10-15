@@ -27,6 +27,14 @@ class FakeClient:
         self.fail = False
         self.lose_receipt = False
         self.invalid = False
+        self.profile_refs = ["fixture-refresh"]
+
+    def profile(self, name):
+        self.calls.append(("profile", name))
+        return {
+            "catalog": [{"uuid": self.profile_refs[0], "type": "refresh_policy", "mode": "always"}],
+            "combined_policy_refs": list(self.profile_refs),
+        }
 
     def register_policies(self, policies):
         self.calls.append(("policies", policies))
@@ -125,6 +133,31 @@ class SaucepanTests(unittest.TestCase):
         self.assertEqual(calls[0], calls[1])
         self.assertEqual(len(self.client.receipts), 1)
 
+    def test_profile_is_expanded_only_for_new_operations_and_recovery_keeps_refs(self):
+        self.client.lose_receipt = True
+        with self.assertRaises(IntegrationError):
+            self.workspace.ensure(self.repo)
+        pending = json.loads(self.path.read_text())["pending"]["alice/tools"]
+        self.assertEqual(pending["policy_refs"], ["fixture-refresh"])
+        self.client.profile_refs = ["changed-recipe"]
+        self.workspace.ensure(self.repo)
+        self.workspace.ensure(self.repo)
+        self.assertEqual([call for call in self.client.calls if call[0] == "profile"], [("profile", "explicit-update")])
+        registrations = [call[1] for call in self.client.calls if call[0] == "policies"]
+        self.assertEqual(registrations[0], registrations[1])
+        definition = next(iter(self.client.groups.values()))["definition"]
+        self.assertEqual(definition["members"][0]["target"]["policy_refs"], ["fixture-refresh"])
+
+    def test_conflicting_profile_refs_in_group_receipt_are_rejected(self):
+        self.client.lose_receipt = True
+        with self.assertRaises(IntegrationError):
+            self.workspace.ensure(self.repo)
+        receipt = next(iter(self.client.receipts.values()))
+        receipt["group"]["definition"]["members"][0]["target"]["policy_refs"] = ["unexpected"]
+        with self.assertRaisesRegex(IntegrationError, "conflicting repository provenance"):
+            self.workspace.ensure(self.repo)
+        self.assertFalse(json.loads(self.path.read_text())["selected"])
+
     def test_invalid_source_provenance_is_not_published(self):
         self.client.invalid = True
         with self.assertRaisesRegex(IntegrationError, "Invalid retained"):
@@ -158,7 +191,7 @@ class SaucepanTests(unittest.TestCase):
             patch("zush.saucepan.subprocess.run") as run,
             patch("zush.saucepan.Client") as client,
         ):
-            run.return_value = subprocess.CompletedProcess([], 0, "saucepan 0.9.0\n")
+            run.return_value = subprocess.CompletedProcess([], 0, "saucepan 0.10.0\n")
             _external_client()
             client.assert_called_once_with(executable="chosen", root="isolated")
             run.return_value = subprocess.CompletedProcess([], 0, "saucepan 0.3.0\n")

@@ -20,25 +20,21 @@ from zush.github import Repository
 from zush.utils.state import atomic_write_text
 
 PIN_POLICY = str(uuid5(NAMESPACE_URL, "zush:pin:until-released:v1"))
-REFRESH_POLICY = str(uuid5(NAMESPACE_URL, "zush:refresh:always:v1"))
-POLICIES = [
-    {"uuid": PIN_POLICY, "type": "pin_policy", "retention": "until_released"},
-    {"uuid": REFRESH_POLICY, "type": "refresh_policy", "mode": "always"},
-]
+PIN_DEFINITION = {"uuid": PIN_POLICY, "type": "pin_policy", "retention": "until_released"}
 
 
 def _external_client() -> Client:
     binary = os.environ.get("ZUSH_SAUCEPAN") or shutil.which("saucepan")
     if not binary:
-        raise IntegrationError("Install Saucepan 0.9.x on PATH or set ZUSH_SAUCEPAN; then run saucepan init.")
+        raise IntegrationError("Install Saucepan 0.10.x on PATH or set ZUSH_SAUCEPAN; then run saucepan init.")
     try:
         result = subprocess.run(  # noqa: S603 - explicit executable, no shell
             [binary, "--version"], capture_output=True, text=True, timeout=10, check=False
         )
     except (OSError, subprocess.TimeoutExpired) as error:
-        raise IntegrationError("Cannot run Saucepan; check ZUSH_SAUCEPAN and install Saucepan 0.9.x.") from error
-    if result.returncode or not re.fullmatch(r"saucepan 0\.9\.\d+(?:[-+][\w.-]+)?\s*", result.stdout):
-        raise IntegrationError("Unsupported Saucepan manager; install Saucepan 0.9.x.")
+        raise IntegrationError("Cannot run Saucepan; check ZUSH_SAUCEPAN and install Saucepan 0.10.x.") from error
+    if result.returncode or not re.fullmatch(r"saucepan 0\.10\.\d+(?:[-+][\w.-]+)?\s*", result.stdout):
+        raise IntegrationError("Unsupported Saucepan manager; install Saucepan 0.10.x.")
     return Client(executable=binary, root=os.environ.get("ZUSH_SAUCEPAN_ROOT") or None)
 
 
@@ -151,17 +147,22 @@ class SaucepanWorkspace:
         origin = self._origin(repository)
         if previous and previous["commit"] == repository.commit and previous["origin"] == origin:
             return self._path(previous)
+        profile = self.client.profile("explicit-update")
         pending = {
             "commit": repository.commit,
             "origin": origin,
             "operation_key": f"zush:{state['consumer']}:{uuid4()}",
+            # Save the expansion, not just a recipe name: recovery must adopt
+            # precisely the same immutable policy definitions and references.
+            "policy_catalog": profile["catalog"],
+            "policy_refs": profile["combined_policy_refs"],
         }
         state["pending"][target] = pending
         self._save(state)
         return self._finish(state, target, pending)
 
     def _finish(self, state: dict, target: str, pending: dict) -> Path:
-        self.client.register_policies(POLICIES)
+        self.client.register_policies([*pending["policy_catalog"], PIN_DEFINITION])
         if "group_uuid" not in pending:
             source = self.client.register_source({"type": "git", "origin": pending["origin"]})
             pending["source_uuid"] = source["uuid"]
@@ -174,7 +175,7 @@ class SaucepanWorkspace:
                             "type": "acquire",
                             "source_uuid": source["uuid"],
                             "selector": {"type": "commit", "commit": pending["commit"]},
-                            "policy_refs": [REFRESH_POLICY],
+                            "policy_refs": pending["policy_refs"],
                         },
                     }
                 ],
@@ -255,7 +256,7 @@ class SaucepanWorkspace:
                 or target.get("claim")
                 or target["source_uuid"] != pending["source_uuid"]
                 or target["selector"] != {"type": "commit", "commit": pending["commit"]}
-                or target["policy_refs"] != [REFRESH_POLICY]
+                or target["policy_refs"] != pending["policy_refs"]
                 or any(value for key, value in target.get("selection", {}).items() if key != "format")
                 or target.get("selection", {}).get("format", "natural") != "natural"
             ):

@@ -8,7 +8,7 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "saucepan-sdk @ git+https://github.com/ZackaryW/saucepan.git@041e4f90634e6007b58054a59604396f8fbebd21#subdirectory=sdk/python",
+    "saucepan-sdk @ git+https://github.com/ZackaryW/saucepan.git@8a2d04e7d2e393c035715520254bdd5955651873#subdirectory=sdk/python",
     "filelock>=3.20,<4",
 ]
 

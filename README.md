@@ -21,7 +21,9 @@ uv tool install .
 zush --version
 ```
 
-Install Saucepan 0.9.x separately and run `saucepan init` before the first repository operation. Zush uses the external Python SDK pinned to the reviewed release source; it never downloads a private manager or initializes your store automatically. GitHub CLI supplies exact commit metadata, while Saucepan owns retrieval and retained immutable outputs. Private Git repositories additionally require working Git transport credentials (for example, `gh auth setup-git`). Empty repositories have no executable revision and are omitted.
+Install Saucepan 0.10.x separately and run `saucepan init` before the first repository operation. Zush uses the external Python SDK 0.2.0 pinned to the reviewed v0.10.0 release commit; it never downloads a private manager or initializes your store automatically. GitHub CLI supplies exact commit metadata, while Saucepan owns retrieval and retained immutable outputs. Private Git repositories additionally require working Git transport credentials (for example, `gh auth setup-git`). Empty repositories have no executable revision and are omitted.
+
+For each first acquisition or explicit update to a new repository selection, Zush asks the manager to expand its `explicit-update` profile, registers the returned immutable policies, and attaches their UUID references. Zush does not duplicate the profile settings. Pending operations save the expanded definitions and references for consistent recovery. Ordinary execution reuses the selected output without expanding a profile or refreshing. The profile keeps up to ten managed revisions by default; Zush independently pins published generations until released, so older pinned outputs can remain. No application registration, scope, credentials, keyring, or managed application installation is required.
 
 ## Namespaces and addresses
 

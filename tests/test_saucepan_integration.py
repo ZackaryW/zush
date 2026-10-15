@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import json
 import os
 import subprocess
 import tempfile
@@ -126,6 +127,12 @@ class RealManagerTests(unittest.TestCase):
             first_repo = Repository("fixture", "tools", first_commit, "")
             first = workspace.ensure(first_repo)
             self.assertEqual((first / "hello.py").read_text(), "print('A')\n")
+            profile = client.profile("explicit-update")
+            binding = json.loads(workspace.bindings.read_text())["selected"]["fixture/tools"]
+            self.assertEqual(binding["policy_catalog"], profile["catalog"])
+            self.assertEqual(binding["policy_refs"], profile["combined_policy_refs"])
+            group = client.show_group(binding["group_uuid"])
+            self.assertEqual(group["definition"]["members"][0]["target"]["policy_refs"], binding["policy_refs"])
             (repo / "hello.py").write_text("print('B')\n", encoding="utf-8")
             git("add", ".")
             git("commit", "-m", "B")
