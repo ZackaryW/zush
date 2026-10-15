@@ -10,6 +10,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stderr
 from pathlib import Path
+from unittest.mock import patch
 
 from saucepan_sdk import Client
 from test_application import FakeGitHub
@@ -18,12 +19,25 @@ from zush.application import Application
 from zush.cli import run_cli
 from zush.errors import IntegrationError
 from zush.github import Repository
-from zush.saucepan import SaucepanWorkspace
+from zush.saucepan import SaucepanWorkspace, _external_client
 from zush.utils.paths import ZushPaths
 
 
 @unittest.skipUnless(os.environ.get("ZUSH_TEST_SAUCEPAN"), "set ZUSH_TEST_SAUCEPAN to test an isolated real manager")
 class RealManagerTests(unittest.TestCase):
+    def test_external_manager_profile_preview_does_not_initialize_a_store(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "uninitialized"
+            with patch.dict(os.environ, {
+                "ZUSH_SAUCEPAN": os.environ["ZUSH_TEST_SAUCEPAN"],
+                "ZUSH_SAUCEPAN_ROOT": str(root),
+            }):
+                client = _external_client()
+                profile = client.profile("explicit-update")
+            self.assertFalse(profile["for_install"])
+            self.assertTrue(profile["combined_policy_refs"])
+            self.assertFalse(root.exists())
+
     def test_central_alias_local_commands_and_updates_use_real_retained_outputs(self):
         with tempfile.TemporaryDirectory() as temporary:
             base = Path(temporary)
