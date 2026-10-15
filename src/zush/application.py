@@ -11,6 +11,14 @@ from zush.errors import ZushError
 from zush.github import GitHubClient, Repository
 from zush.saucepan import SaucepanWorkspace
 from zush.utils.addressing import Address, parse_address
+from zush.utils.commands import (
+    Command,
+    command_script,
+    global_commands,
+    load_repository_commands,
+    qualified_command,
+    select_command,
+)
 from zush.utils.config import (
     Alias,
     Configuration,
@@ -43,6 +51,7 @@ class Invocation:
     maps: tuple[str, ...] = ()
     variables: tuple[str, ...] = ()
     casted: tuple[str, ...] = ()
+    no_first: bool = False
 
 
 def _run_process(argv: list[str], environment: dict[str, str]) -> int:
@@ -102,15 +111,25 @@ class Application:
 
     def execute_alias(self, name: str, invocation: Invocation) -> int:
         current, current_repositories, configuration = self._base_context()
-        alias = configuration.commands.get(name)
-        if alias is None:
-            raise ZushError(f"unknown alias: {name}")
+        qualified = qualified_command(name, current)
+        if qualified:
+            address, command_name = qualified
+            repository = self._repository(address, current, current_repositories, configuration)
+            commands = load_repository_commands(repository.target, self.workspace.ensure(repository))
+            command = select_command(command_name, commands, no_first=False, hidden=set())
+        else:
+            commands = self._commands(current, current_repositories, configuration)
+            _, hidden = load_local_overlay(self.paths.aliases)
+            command = select_command(name, commands, no_first=invocation.no_first, hidden=hidden)
+        alias = command.alias
         combined = Invocation(
             args=(*alias.default_args, *invocation.args),
             maps=invocation.maps,
             variables=invocation.variables,
             casted=invocation.casted,
         )
+        if command.root is not None:
+            return self._execute_script(command_script(command), combined, dict(alias.default_map))
         return self._execute_address(
             alias.target,
             combined,
@@ -119,6 +138,26 @@ class Application:
             configuration,
             defaults=alias.default_map,
         )
+
+    def commands(self) -> list[Command]:
+        current, repositories, configuration = self._base_context()
+        return self._commands(current, repositories, configuration)
+
+    def _commands(self, current: str, repositories: list[Repository], configuration: Configuration) -> list[Command]:
+        local, _ = load_local_overlay(self.paths.aliases)
+        commands = global_commands(configuration.commands, local, self.paths.aliases)
+        eligible = list(repositories)
+        for owner in self.list_namespaces():
+            if owner.casefold() != current.casefold():
+                eligible.extend(self.github.repositories(owner))
+        installed = self.workspace.installed()
+        for repository in sorted(eligible, key=lambda repo: (repo.target.casefold(), repo.target)):
+            if self._excluded(configuration, repository.owner, repository.name):
+                continue
+            output = installed.get(repository.target.casefold())
+            if output is not None:
+                commands.extend(load_repository_commands(repository.target, output))
+        return commands
 
     def update(self) -> None:
         current = self.github.current_login()
@@ -146,7 +185,10 @@ class Application:
         )
         remote_path: Path | None = None
         if config_repository is not None:
-            remote_path = self.workspace.ensure(config_repository) / "map.toml"
+            output = self.workspace.ensure(config_repository)
+            remote_path = output / "map.toml"
+            if not remote_path.resolve().is_relative_to(output.resolve()):
+                raise ZushError(f"central configuration escapes its output: {remote_path}")
         return merge_configuration(load_remote_map(remote_path), load_local_overlay(self.paths.aliases))
 
     def _execute_address(
@@ -159,20 +201,30 @@ class Application:
         *,
         defaults: dict[str, object] | object = None,
     ) -> int:
+        repository = self._repository(address, current, current_repositories, configuration)
+        checkout = self.workspace.ensure(repository)
+        script = resolve_script(checkout, address.script)
+        return self._execute_script(script, invocation, defaults)
+
+    def _repository(
+        self,
+        address: Address,
+        current: str,
+        current_repositories: list[Repository],
+        configuration: Configuration,
+    ) -> Repository:
         owner = address.owner or current
         if owner != current and owner not in load_namespaces(self.paths.namespaces):
             raise ZushError(f"namespace is not enrolled: {owner}")
         owner_repositories = current_repositories if owner == current else self.github.repositories(owner)
-        repositories = list(current_repositories)
-        if owner != current:
-            repositories.extend(owner_repositories)
         if self._excluded(configuration, owner, address.repository):
             raise ZushError(f"repository is excluded: {owner}/{address.repository}")
         repository = next((item for item in owner_repositories if item.name == address.repository), None)
         if repository is None:
             raise ZushError(f"repository is not visible: {owner}/{address.repository}")
-        checkout = self.workspace.ensure(repository)
-        script = resolve_script(checkout, address.script)
+        return repository
+
+    def _execute_script(self, script: Path, invocation: Invocation, defaults: object = None) -> int:
         payload = build_payload(
             defaults if isinstance(defaults, dict) else {}, invocation.maps, invocation.variables, invocation.casted
         )

@@ -36,6 +36,8 @@ def load_remote_map(path: Path | None) -> Configuration:
         namespaces_raw = payload.get("namespaces", {})
         if not isinstance(commands_raw, dict) or not isinstance(namespaces_raw, dict):
             raise TypeError
+        for name in commands_raw:
+            _validate_name(name)
         commands = {name: _alias_from_mapping(record) for name, record in commands_raw.items()}
         exclusions: dict[str, tuple[str, ...]] = {}
         for owner, record in namespaces_raw.items():
@@ -59,6 +61,8 @@ def load_local_overlay(path: Path) -> tuple[dict[str, Alias], set[str]]:
         tombstones_raw = payload.get("tombstones", [])
         if not isinstance(commands_raw, dict) or not _string_list(tombstones_raw):
             raise TypeError
+        for name in (*commands_raw, *tombstones_raw):
+            _validate_name(name)
         commands = {name: _alias_from_json(record) for name, record in commands_raw.items()}
     except (OSError, json.JSONDecodeError, AttributeError, TypeError, ZushError) as error:
         if isinstance(error, ZushError):
@@ -157,5 +161,5 @@ def _string_list(value: object) -> bool:
 
 
 def _validate_name(name: str) -> None:
-    if not name or any(character.isspace() for character in name):
-        raise ZushError("alias name must be a nonempty token")
+    if not isinstance(name, str) or not name or any(character.isspace() or character in ":/\\" for character in name):
+        raise ZushError("alias name must be an unqualified token without ':', '/' or '\\'")

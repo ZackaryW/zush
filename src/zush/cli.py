@@ -27,6 +27,12 @@ def run_cli(argv: list[str], app: Application | None = None) -> int:
             return _namespace(argv[1:], application)
         if argv[0] == "alias":
             return _alias(argv[1:], application)
+        if argv[0] == "commands":
+            if len(argv) != 1:
+                raise ZushError("zush commands takes no arguments")
+            for command in application.commands():
+                print(f"{command.qualified}\t{command.provenance}")
+            return 0
         if argv[0] == "run":
             name, invocation = _parse_invocation(argv[1:], "zush run")
             return application.execute_alias(name, invocation)
@@ -101,6 +107,8 @@ def _parse_invocation(argv: list[str], program: str) -> tuple[str, Invocation]:
     parser.add_argument("--map", dest="maps", action="append", default=[])
     parser.add_argument("--var", dest="variables", action="append", default=[])
     parser.add_argument("--casted", action="append", default=[])
+    if program == "zush run":
+        parser.add_argument("--no-first", action="store_true")
     try:
         values = parser.parse_args(options)
     except SystemExit as error:
@@ -110,6 +118,7 @@ def _parse_invocation(argv: list[str], program: str) -> tuple[str, Invocation]:
         maps=tuple(values.maps),
         variables=tuple(values.variables),
         casted=tuple(values.casted),
+        no_first=getattr(values, "no_first", False),
     )
     return values.target, invocation
 
@@ -117,7 +126,8 @@ def _parse_invocation(argv: list[str], program: str) -> tuple[str, Invocation]:
 def _print_help() -> None:
     print(
         "usage: zush ADDRESS [options] [-- argv...]\n"
-        "       zush run ALIAS [options] [-- argv...]\n"
+        "       zush run COMMAND [--no-first] [options] [-- argv...]\n"
+        "       zush commands\n"
         "       zush namespace {add,list,remove}\n"
         "       zush alias {bind,unbind}\n"
         "       zush update"

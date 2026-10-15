@@ -12,4 +12,3 @@ Feature: Support the declared Python runtime floor
     Given a wheel built from the Zush project
     When an installer evaluates it for Python 3.11
     Then the package is rejected as requiring Python 3.12 or newer
-

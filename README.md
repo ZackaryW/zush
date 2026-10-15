@@ -90,13 +90,46 @@ alias. Local alias state and retained output bindings are separate from the remo
 
 ## Updates and state
 
+## Commands inside installed repositories
+
+An installed repository can publish `.zush/map.toml` without a central alias:
+
+```toml
+[commands.deploy]
+path = "scripts.deploy"
+default_args = ["staging"]
+default_map = { retries = 2 }
+```
+
+This selects `.zush/scripts/deploy.py` (or another supported, unambiguous script type).
+Local maps accept paths within their own `.zush` directory. Cross-repository `target` records belong in the central map.
+
+```console
+zush commands
+zush run alice/tools:deploy
+zush run ~tools:deploy --arg production
+zush run deploy
+zush run deploy --no-first
+```
+
+`commands` lists provenance and qualified names from installed, visible, enrolled and non-excluded repositories.
+It does not download every visible repository to search for commands. A qualified invocation may acquire that one
+repository. The optional central `.zush` repository is loaded for global configuration as usual.
+
+Unqualified names use **first match by default**: local aliases override central aliases, then repository commands
+follow in canonical owner/repository order. `--no-first` fails on a collision and lists its candidates. An overridden
+central alias and its local replacement count as one effective alias. An unbind tombstone hides the name across
+unqualified discovery; a qualified invocation remains explicit. Arguments after `--` are passed to the script literally.
+The existing direct address syntax (`zush ~tools:scripts.deploy`) continues to resolve relative to the repository root.
+
+## Updates and retained state
+
 Normal execution reuses an installed checkout and never updates it. Run `zush update` explicitly to refresh every
 visible managed repository. By default local state lives in `~/.zush`; set `ZUSH_HOME` to relocate all Zush state or
 `ZUSH_SAUCEPAN` to select a specific Saucepan executable.
 
-The manager uses its normal user-level .saucepan root. Set ZUSH_SAUCEPAN_ROOT to use an explicitly initialized different store. Applications, scopes, credentials and keyring protection are optional Saucepan features and are not required by this launcher.
+The manager uses its normal user-level `.saucepan` root. Set `ZUSH_SAUCEPAN_ROOT` to use an explicitly initialized different store. Applications, scopes, credentials and keyring protection are optional Saucepan features and are not required by this launcher.
 
 Bindings are written atomically under a bounded file lock. Selected and previous output generations stay pinned, so an update cannot remove files used by another Zush process. This deliberately consumes storage; automatic pin cleanup is not implemented. Failed updates preserve the previous selection. A lost response is reconciled on the next update using the saved operation identity, not a new request.
 
-Earlier Zush state is unsupported. Choose a new ZUSH_HOME and reacquire repositories; no old state or store is automatically deleted. Recreate namespace enrollment and local aliases as needed.
-
+Earlier Zush state is unsupported. Choose a new `ZUSH_HOME` and reacquire repositories; no old state or store is automatically deleted. Recreate namespace enrollment and local aliases as needed.

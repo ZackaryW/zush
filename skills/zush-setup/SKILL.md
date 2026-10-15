@@ -40,4 +40,3 @@ The directory is created lazily. It can contain namespace and alias state, the g
 - For Python compatibility errors, inspect the installed distribution metadata and require Python 3.12 or newer.
 
 Do not execute a repository script merely to prove installation; `zush --version` is the safe setup check.
-

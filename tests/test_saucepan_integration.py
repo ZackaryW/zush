@@ -25,7 +25,10 @@ class RealManagerTests(unittest.TestCase):
 
             def git(*args):
                 return subprocess.run(  # noqa: S603,S607 - fixed local fixture commands
-                    ["git", "-C", str(repo), *args], capture_output=True, text=True, check=True  # noqa: S607
+                    ["git", "-C", str(repo), *args],  # noqa: S607
+                    capture_output=True,
+                    text=True,
+                    check=True,  # noqa: S607
                 ).stdout.strip()
 
             git("init")
@@ -55,4 +58,3 @@ class RealManagerTests(unittest.TestCase):
             with self.assertRaises(IntegrationError):
                 workspace.update_all([Repository("fixture", "tools", "f" * 40, "")])
             self.assertEqual(workspace.ensure(second_repo), second)
-

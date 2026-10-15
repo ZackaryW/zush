@@ -29,7 +29,10 @@ def resolve_script(root: Path, segments: tuple[str, ...]) -> Path:
     if len(candidates) > 1:
         names = ", ".join(str(candidate.relative_to(resolved_root)) for candidate in candidates)
         raise ZushError(f"ambiguous script; candidates: {names}")
-    return candidates[0]
+    selected = candidates[0].resolve()
+    if not selected.is_relative_to(resolved_root):
+        raise ZushError("script path escapes the managed checkout")
+    return selected
 
 
 def runner_argv(
