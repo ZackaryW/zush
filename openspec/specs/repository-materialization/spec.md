@@ -6,49 +6,60 @@ Defines how Zush converts visible GitHub repositories into Saucepan-managed work
 
 ## Requirements
 
-### Requirement: Namespace inventory supplies acquisition metadata
-Zush SHALL derive a private local Saucepan index from GitHub repository identity, description, and current default-branch commit. Each generated entry SHALL carry a unique acquisition identity, the repository target, a manifest, and the exact commit as its ref, and SHALL NOT carry command-tree declarations.
-
-#### Scenario: Manifest-less repository is inventoried
-- **WHEN** GitHub enumeration returns a repository that has no Saucepan manifest
-- **THEN** Zush generates sufficient local index metadata for Saucepan to install the repository at the enumerated commit
-
-#### Scenario: Generated index remains local
-- **WHEN** Zush refreshes namespace inventory
-- **THEN** the generated index is written only to Zush-managed local state and is not committed to the user's `.zush` repository
-
 ### Requirement: Saucepan owns repository lifecycle
-Zush SHALL delegate repository install, update, path lookup, and uninstall state to Saucepan and SHALL NOT maintain an independent clone or pull implementation.
+Zush SHALL delegate repository retrieval, output preparation, and retention to the current Saucepan SDK and SHALL NOT maintain an independent clone, pull, or binary download implementation. Existing managed outputs SHALL be located through canonical repository provenance and selected output receipts, independent of repository-authored manifests.
 
 #### Scenario: First invocation materializes a repository
-- **WHEN** a valid address names a visible repository that Saucepan has not installed
-- **THEN** Zush asks Saucepan to install the repository and resolves the script from the resulting managed path
+- **WHEN** a valid address names a visible repository without a selected output
+- **THEN** Zush prepares and retains the exact enumerated commit through Saucepan before resolving its path
 
 #### Scenario: Existing installation is reused
-- **WHEN** a valid address names a repository already managed by Saucepan
-- **THEN** Zush resolves its current Saucepan path without cloning it again
-
-### Requirement: Installed identity follows provenance
-Zush SHALL locate an installed repository by its recorded `owner/repo` provenance rather than assuming the repository target equals the installed manifest name.
-
-#### Scenario: Repository manifest chooses another name
-- **WHEN** a repository-owned Saucepan manifest overrides the generated index and declares a different installed name
-- **THEN** Zush still locates the checkout through its repository provenance
+- **WHEN** a valid address names a repository with a selected managed output
+- **THEN** Zush uses that output without cloning or preparing a new revision
 
 ### Requirement: Updates are explicit
-Zush SHALL update managed repositories only when the user invokes the Zush update command. Ordinary script execution SHALL NOT refresh or pull an existing checkout.
+Zush SHALL update selected outputs only on first materialization or explicit `zush update`. Ordinary execution SHALL NOT refresh an existing output. Updates SHALL be published per repository only after receiving and validating a retained output; no all-repository atomicity is promised.
 
 #### Scenario: Execute an installed repository
 - **WHEN** the user invokes a script from an existing managed checkout
-- **THEN** Zush uses the current checkout without contacting Saucepan for an update
+- **THEN** Zush uses the selected immutable output without requesting an update
 
 #### Scenario: Explicit update
 - **WHEN** the user invokes `zush update`
-- **THEN** Zush refreshes visible namespace metadata and asks Saucepan to update each installed remote repository still represented by that inventory
+- **THEN** Zush refreshes visible namespace metadata and prepares new selections for installed repositories still visible, enrolled, and non-excluded
 
 ### Requirement: Materialization failures preserve safety
-Zush SHALL surface Saucepan acquisition failures and SHALL not execute a path from a partial or unresolved checkout.
+Zush SHALL surface structured acquisition failures, SHALL never execute a partial or unresolved output, and SHALL preserve the previous selection on failed update. Potentially committed operations SHALL be reconciled using their original operation identity before any replacement mutation.
 
 #### Scenario: Saucepan installation fails
-- **WHEN** Saucepan cannot install the resolved repository
+- **WHEN** Saucepan cannot prepare the resolved repository
 - **THEN** Zush returns a failure and executes no script
+
+#### Scenario: Update fails with an existing selection
+- **WHEN** an update cannot produce a validated retained output
+- **THEN** the update reports failure and the previous selection remains usable
+
+#### Scenario: Mutation receipt is lost
+- **WHEN** transport ends after a preparation may have committed
+- **THEN** Zush reconciles the original operation rather than issuing a new operation identity or executing an uncertain path
+
+### Requirement: Repository outputs remain retained for readers
+Zush SHALL retain selected and previously published generations across processes so script execution and configuration reads cannot lose files during an update. Mutations of shared consumer state SHALL be serialized with bounded waits, and published bindings SHALL be atomic.
+
+#### Scenario: Update overlaps script execution
+- **WHEN** one process updates a repository while another uses its previous output
+- **THEN** the previous output remains readable and the new selection identifies a separate immutable output
+
+### Requirement: Basic operation requires no protected application
+Zush SHALL support its normal launcher flow without application registration, credentials, keyring configuration, or an application scope. It SHALL use the current external manager's standard root unless explicitly overridden.
+
+#### Scenario: Unprotected local use
+- **WHEN** an initialized current manager is available with no protected application configuration
+- **THEN** Zush can prepare, retain, and execute eligible repository content
+
+### Requirement: Profile expansion belongs to the manager
+Zush SHALL obtain `explicit-update` through the public SDK, explicitly register the returned catalog, and attach combined immutable policy UUID references when preparing a new exact-commit selection. Pending operations SHALL preserve expanded definitions and refs across recovery. Ordinary selected-path reads SHALL NOT re-expand profiles. Pins and application setup SHALL remain independent.
+
+#### Scenario: Recovery after a recipe changes
+- **WHEN** a preparation receipt is lost and a later profile preview would differ
+- **THEN** recovery uses the original saved catalog and refs without adopting the later recipe
